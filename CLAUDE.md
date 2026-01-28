@@ -207,12 +207,24 @@ When the user sends a greeting to start the session, respond with:
 
 When user says `"Run job search"`:
 
-**Step 1: Execute search**
+**Step 1: Build the search prompt**
+
+The search prompt is assembled from two files:
+- `prompts/gemini-search-prompt.md` — Template with agent instructions and output format
+- `data/search-criteria.md` — User's personal search criteria (gitignored)
+
+Read both files, then replace `{{SEARCH_CRITERIA}}` in the template with the contents of `search-criteria.md`.
+
+**Step 2: Execute search**
+
+Write the assembled prompt to a temp file and send to Gemini:
 ```bash
-cd /tmp && gemini -o text < "prompts/gemini-search-prompt.md" > "data/search-results/gemini-results.md"
+# Assemble prompt (template + criteria injection)
+# Write to temp file, e.g., /tmp/search-prompt.md
+gemini -o text < /tmp/search-prompt.md > "data/search-results/gemini-results.md"
 ```
 
-**Step 2: Deduplicate results (BEFORE displaying)**
+**Step 3: Deduplicate results (BEFORE displaying)**
 
 Read `data/tracker.json` and filter out roles that exist in ANY array:
 - `active` — currently tracking
