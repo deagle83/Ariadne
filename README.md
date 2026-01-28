@@ -48,7 +48,26 @@ Ariadne will:
 
 Each role gets its own folder containing the JD, your tailored resume, interview notes, and any other artifacts.
 
-### 3. Tailoring Your Resume
+### 3. Preparing for Interviews
+
+Before tailoring your resume or prepping for an interview, generate a research packet:
+
+```
+"Research packet for Stripe"
+```
+
+Ariadne's research agent:
+- Researches the hiring manager (career path, management style, public talks)
+- Investigates the company's engineering org, culture, and recent events
+- Maps their tech stack and observability practices to your experience
+- Analyzes the JD and recruiter notes to predict interview question categories
+- Maps your work stories to likely questions with specific beats to hit
+- Curates a prioritized reading/watching list (blog posts, talks, podcasts)
+- Drafts high-signal questions to ask your interviewer
+
+You get `research-packet.md` in the role folder — including a printable quick reference card for interview day.
+
+### 4. Tailoring Your Resume
 
 This is where Ariadne shines. Instead of manually tweaking your resume for each application:
 
@@ -67,7 +86,7 @@ You get two outputs:
 - `resume-draft.md` — Your customized resume for this role
 - `comparison-analysis.md` — Detailed reasoning, fit scores, and interview risk areas
 
-### 4. Generating Your PDF
+### 5. Generating Your PDF
 
 Once you're happy with the draft:
 
@@ -77,7 +96,7 @@ Once you're happy with the draft:
 
 Ariadne converts your markdown resume to a professionally formatted PDF using your configured stylesheet.
 
-### 5. Tracking Progress
+### 6. Tracking Progress
 
 As you move through the interview process:
 
@@ -96,7 +115,7 @@ When a process ends:
 "Move Stripe to Accepted"    # 🎉
 ```
 
-### 6. Staying Organized
+### 7. Staying Organized
 
 Check your pipeline anytime:
 
@@ -196,6 +215,7 @@ Good morning! Here's your job search status...
 | `"Run job search"` | Find new opportunities matching your criteria |
 | `"Setup #N"` or `"Setup [Company - Role]"` | Start tracking a role |
 | `"Skip #N"` | Filter out a role from future searches |
+| `"Research packet for [Company]"` | Generate interview research packet |
 | `"Compare JD and resume for [Company]"` | Generate tailored resume + fit analysis |
 | `"Generate PDF for [Company]"` | Create submission-ready PDF |
 | `"Move [Company] to [Stage]"` | Update pipeline status |

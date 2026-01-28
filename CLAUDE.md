@@ -30,6 +30,7 @@ When the user sends a greeting to start the session, respond with:
 | `"Complete task #N"` | Mark task as completed |
 | `"Tasks"` | Display pending tasks from tasks.json |
 | `"Contacts"` | Display contacts from network.json |
+| `"Research packet for [Company]"` | Generate interview research packet (hiring manager, company, culture, story map) |
 
 ## Quick Reference
 
@@ -40,7 +41,7 @@ When the user sends a greeting to start the session, respond with:
 - `data/Rejected/` - Closed opportunities
 - `data/search-results/` - Search outputs (gemini-results.md)
 - `/status-page/` - Cloudflare Pages dashboard (build.js, dist/)
-- `/.claude/agents/` - Subagent configuration files (e.g., `jd-resume-compare.md`)
+- `/.claude/agents/` - Subagent configuration files (`jd-resume-compare.md`, `interview-research.md`)
 
 **Key Files:**
 - `data/tracker.json` - Job tracker (source of truth for job status) — see schema below
@@ -449,6 +450,42 @@ weasyprint resume.html "[Name] Resume.pdf"  # Name from data/profile.md
 | `"Complete task #N"` | Mark task completed |
 | `"Tasks"` | Display pending tasks |
 | `"Contacts"` | Display contacts with recent interactions |
+| `"Research packet for [Company]"` | Prerequisite check → `interview-research` agent → research-packet.md |
+
+### Research Packet Command
+
+When user says `"Research packet for [Company]"` or `"Prep research for [Company]"`:
+
+**PREREQUISITE CHECK — Do this BEFORE spawning the subagent:**
+
+1. Find role in data/tracker.json, get folder path
+2. Check for JD file: `JD.md`, `JD.pdf`, or any file with "JD" in the name
+3. Check for `notes.md` with recruiter screen content
+4. **If JD or notes.md is missing or empty, DO NOT spawn the subagent.** Instead, respond:
+   ```
+   Cannot generate research packet — [missing file] not found in [folder path]
+
+   Found files: [list files]
+
+   Options:
+   1. Open the job posting in Chrome and I'll extract it
+   2. Provide the JD URL and I'll fetch it
+   3. Add the file manually to the folder
+   ```
+
+5. **If both exist**, spawn the `interview-research` agent
+
+**Output:** `research-packet.md` in the role folder containing:
+- Hiring manager profile (career, management style, public talks)
+- Company context and recent events
+- Engineering org structure and culture
+- Observability stack and incident history
+- Role analysis with predicted question categories
+- Story map linking work-stories.md to likely questions
+- Technology discussion prep
+- Prioritized reading/watching list with URLs
+- Questions to ask the interviewer
+- Printable quick reference card
 
 ### Deploy Dashboard Command
 
