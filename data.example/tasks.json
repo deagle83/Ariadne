@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "id": "task-001",
+      "task": "Follow up with First Contact on referral status",
+      "due": "2026-01-28",
+      "linkedContacts": ["contact-1"],
+      "linkedJobs": ["Example Corp - Director of Platform Engineering"],
+      "status": "pending",
+      "created": "2026-01-26"
+    }
+  ]
+}

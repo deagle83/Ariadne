@@ -1,0 +1,23 @@
+{
+  "contacts": [
+    {
+      "id": "contact-1",
+      "name": "First Contact",
+      "company": "Example Corp",
+      "title": "Engineering Manager",
+      "email": null,
+      "linkedin": null,
+      "source": "Former coworker",
+      "introducedBy": null,
+      "added": "2026-01-26",
+      "interactions": [
+        {
+          "date": "2026-01-26",
+          "type": "email",
+          "summary": "Sent resume for Director role",
+          "linkedJobs": ["Example Corp - Director of Platform Engineering"]
+        }
+      ]
+    }
+  ]
+}

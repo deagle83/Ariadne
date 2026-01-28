@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Search Dashboard</title>
+  <style>{{STYLES}}</style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1>Job Search Dashboard</h1>
+      <span class="last-updated">Updated: {{LAST_UPDATED}}</span>
+    </div>
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" aria-label="Dashboard sections">
+      <button class="tab-btn active" data-tab="applications">Applications</button>
+      <button class="tab-btn" data-tab="tasks">Tasks</button>
+      <button class="tab-btn" data-tab="networking">Networking</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- Tab Content: Applications (active by default) -->
+    <div class="tab-content active" id="tab-applications">
+
+      <!-- CURRENT STATE Section -->
+      <section class="current-state" aria-label="Current pipeline state">
+        <h2 class="section-title">Current State</h2>
+
+        <!-- KPI Cards -->
+        <div class="kpi-section" aria-label="Key metrics">
+          {{KPI_CARDS}}
+        </div>
+
+        <!-- Current Pipeline (active roles only) -->
+        <div class="pipeline-section" aria-label="Active pipeline stages">
+          <h3 class="pipeline-title">Active Pipeline</h3>
+          <div class="pipeline">
+            {{CURRENT_PIPELINE}}
+          </div>
+          <button class="clear-filter" id="clearFilter" style="display: none;">Clear filter</button>
+        </div>
+      </section>
+
+      <!-- Active Roles Table (Collapsible, open by default) -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="true" aria-controls="activeContent">
+          <span class="collapse-icon">-</span>
+          Active Roles
+        </button>
+        <div class="collapsible-content" id="activeContent">
+          <div class="table-wrapper">
+            <table class="roles-table" id="activeTable">
+              <thead>
+                <tr>
+                  <th class="sortable col-company" data-sort="company">Company</th>
+                  <th class="col-role">Role</th>
+                  <th class="sortable col-stage" data-sort="stage">Stage</th>
+                  <th class="col-next">Next Action</th>
+                  <th class="sortable col-updated" data-sort="updated">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ACTIVE_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Historical Stats (Collapsed) -->
+      <section class="collapsible-section historical-section">
+        <button class="collapsible-header" aria-expanded="false" aria-controls="historicalContent">
+          <span class="collapse-icon">+</span>
+          Historical Stats
+        </button>
+        <div class="collapsible-content" id="historicalContent" hidden>
+          {{HISTORICAL_STATS}}
+        </div>
+      </section>
+
+      <!-- Closed Roles (Collapsed) -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="false" aria-controls="closedContent">
+          <span class="collapse-icon">+</span>
+          Closed Roles ({{CLOSED_COUNT}})
+        </button>
+        <div class="collapsible-content" id="closedContent" hidden>
+          <div class="table-wrapper">
+            <table class="roles-table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Stage Reached</th>
+                  <th>Outcome</th>
+                  <th>Closed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{CLOSED_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Skipped Roles (Collapsed) -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="false" aria-controls="skippedContent">
+          <span class="collapse-icon">+</span>
+          Skipped ({{SKIPPED_COUNT}})
+        </button>
+        <div class="collapsible-content" id="skippedContent" hidden>
+          <div class="table-wrapper">
+            <table class="roles-table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Reason</th>
+                  <th>Added</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{SKIPPED_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Tab Content: Tasks -->
+    <div class="tab-content" id="tab-tasks">
+      <!-- Task KPI Cards -->
+      <section class="current-state" aria-label="Task overview">
+        <h2 class="section-title">Task Overview</h2>
+        <div class="kpi-section" aria-label="Task metrics">
+          {{TASK_KPI_CARDS}}
+        </div>
+      </section>
+
+      <!-- Pending Tasks Table -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="true" aria-controls="pendingTasksContent">
+          <span class="collapse-icon">-</span>
+          Pending Tasks ({{PENDING_COUNT}})
+        </button>
+        <div class="collapsible-content" id="pendingTasksContent">
+          <div class="table-wrapper">
+            <table class="roles-table" id="pendingTasksTable">
+              <thead>
+                <tr>
+                  <th class="col-task">Task</th>
+                  <th class="col-due">Due</th>
+                  <th class="col-linked">Linked To</th>
+                  <th class="col-created">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{PENDING_TASKS_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Completed Tasks Table (Collapsed) -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="false" aria-controls="completedTasksContent">
+          <span class="collapse-icon">+</span>
+          Completed ({{COMPLETED_COUNT}})
+        </button>
+        <div class="collapsible-content" id="completedTasksContent" hidden>
+          <div class="table-wrapper">
+            <table class="roles-table">
+              <thead>
+                <tr>
+                  <th class="col-task">Task</th>
+                  <th class="col-linked">Linked To</th>
+                  <th class="col-created">Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{COMPLETED_TASKS_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Tab Content: Networking -->
+    <div class="tab-content" id="tab-networking">
+      <!-- Network KPI Cards -->
+      <section class="current-state" aria-label="Network overview">
+        <h2 class="section-title">Network Overview</h2>
+        <div class="kpi-section" aria-label="Network metrics">
+          {{NETWORK_KPI_CARDS}}
+        </div>
+      </section>
+
+      <!-- Contacts Table -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="true" aria-controls="contactsContent">
+          <span class="collapse-icon">-</span>
+          Contacts ({{CONTACTS_COUNT}})
+        </button>
+        <div class="collapsible-content" id="contactsContent">
+          <div class="table-wrapper">
+            <table class="roles-table" id="contactsTable">
+              <thead>
+                <tr>
+                  <th class="col-name">Name</th>
+                  <th class="col-company">Company</th>
+                  <th class="col-title">Title</th>
+                  <th class="col-last-contact">Last Contact</th>
+                  <th class="col-linked-jobs">Linked Jobs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{CONTACTS_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent Interactions Table -->
+      <section class="collapsible-section">
+        <button class="collapsible-header" aria-expanded="true" aria-controls="interactionsContent">
+          <span class="collapse-icon">-</span>
+          Recent Interactions ({{INTERACTIONS_COUNT}})
+        </button>
+        <div class="collapsible-content" id="interactionsContent">
+          <div class="table-wrapper">
+            <table class="roles-table">
+              <thead>
+                <tr>
+                  <th class="col-date">Date</th>
+                  <th class="col-contact">Contact</th>
+                  <th class="col-type">Type</th>
+                  <th class="col-summary">Summary</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{RECENT_INTERACTIONS_ROWS}}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    Generated by <a href="https://github.com/davideagle/ariadne" target="_blank">Ariadne</a>
+  </footer>
+
+  <script>
+    // Embed tracker data for sorting
+    const trackerData = {{TRACKER_JSON}};
+    {{SCRIPT}}
+  </script>
+</body>
+</html>

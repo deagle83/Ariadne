@@ -1,0 +1,41 @@
+# ===========================================
+# Ariadne Job Search Tool - .gitignore
+# ===========================================
+
+# User data directory (contains all PII)
+# This is the PRIMARY protection
+data/
+
+# Keep the example data for onboarding
+!data.example/
+
+# Claude Code local settings (user-specific permissions)
+.claude/settings.local.json
+
+# Build artifacts
+status-page/dist/
+status-page/.wrangler/
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Backup files from migration
+.migration-backup-*/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node modules
+node_modules/
+
+# Log files
+*.log
