@@ -6,8 +6,5 @@
   "dashboard": {
     "projectName": "job-search-dashboard",
     "passwordProtected": true
-  },
-  "pdf": {
-    "resumeFilename": "Resume.pdf"
   }
 }
