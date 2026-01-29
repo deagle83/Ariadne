@@ -1,0 +1,9 @@
+{
+  "name": "ariadne",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Job search automation dashboard",
+  "dependencies": {
+    "marked": "^15.0.0"
+  }
+}

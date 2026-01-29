@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
+const { marked } = require('marked');
 
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(__dirname, 'dist');
@@ -22,9 +23,10 @@ const tracker = loadJson(path.join(ROOT, 'data', 'tracker.json'), { active: [], 
 const network = loadJson(path.join(ROOT, 'data', 'network.json'), { contacts: [] });
 const tasks = loadJson(path.join(ROOT, 'data', 'tasks.json'), { tasks: [] });
 
-let template, styles, script;
+let template, detailTemplate, styles, script;
 try {
   template = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
+  detailTemplate = fs.readFileSync(path.join(__dirname, 'detail-template.html'), 'utf8');
   styles = fs.readFileSync(path.join(__dirname, 'styles.css'), 'utf8');
   script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
 } catch (err) {
@@ -92,6 +94,173 @@ function generateKpiCardsHtml(cards) {
       <div class="kpi-label">${label}</div>
     </div>`
   ).join('\n');
+}
+
+// ============================================================
+// Section 2b: Detail Page Utilities
+// ============================================================
+
+// Generate a deterministic kebab-case slug from company + role
+function generateSlug(company, role) {
+  return `${company}-${role}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+// Build slug map with collision detection
+function buildSlugMap(roles) {
+  const slugMap = new Map();
+  const seen = new Map();
+  for (const role of roles) {
+    let slug = generateSlug(role.company, role.role);
+    const count = seen.get(slug) || 0;
+    seen.set(slug, count + 1);
+    if (count > 0) slug = `${slug}-${count}`;
+    slugMap.set(`${role.company}|${role.role}`, slug);
+  }
+  return slugMap;
+}
+
+// Parse comparison-analysis.md into structured data
+function parseComparisonAnalysis(content) {
+  if (!content) return null;
+
+  const result = {
+    overallScore: null,
+    overallLabel: '',
+    dimensions: [],
+    strengths: [],
+    gaps: [],
+    changesSummary: [],
+    bulletsRemoved: [],
+    flaggedItems: []
+  };
+
+  // Overall score
+  const scoreMatch = content.match(/Overall Fit(?:\s*Score)?:\s*(\d+)\s*\/\s*100\s*(?:--|—|-)?\s*(.*)/i);
+  if (scoreMatch) {
+    result.overallScore = parseInt(scoreMatch[1], 10);
+    result.overallLabel = scoreMatch[2]?.trim() || '';
+  }
+
+  // Dimension table rows: | Dimension | Score | Notes |
+  const dimRegex = /\|\s*([^|]+?)\s*\|\s*(\d+)\s*\/\s*100\s*\|\s*([^|]*)\s*\|/g;
+  let dimMatch;
+  while ((dimMatch = dimRegex.exec(content)) !== null) {
+    const dim = dimMatch[1].trim();
+    if (dim === 'Dimension' || dim === '---' || dim.startsWith('-')) continue;
+    result.dimensions.push({
+      name: dim,
+      score: parseInt(dimMatch[2], 10),
+      notes: dimMatch[3].trim()
+    });
+  }
+
+  // Key Strengths (bulleted list after **Key Strengths:**)
+  const strengthsMatch = content.match(/\*\*Key Strengths:\*\*\s*\n([\s\S]*?)(?=\n\*\*Primary Gaps|\n##)/);
+  if (strengthsMatch) {
+    result.strengths = strengthsMatch[1]
+      .split('\n')
+      .filter(l => l.trim().startsWith('-'))
+      .map(l => l.replace(/^-\s*/, '').trim());
+  }
+
+  // Primary Gaps
+  const gapsMatch = content.match(/\*\*Primary Gaps:\*\*\s*\n([\s\S]*?)(?=\n##)/);
+  if (gapsMatch) {
+    result.gaps = gapsMatch[1]
+      .split('\n')
+      .filter(l => l.trim().startsWith('-'))
+      .map(l => l.replace(/^-\s*/, '').trim());
+  }
+
+  // Changes Made > Summary section
+  const changesMatch = content.match(/## Changes Made\s*\n(?:###\s*Summary\s*\n)?([\s\S]*?)(?=\n###|\n##[^#])/);
+  if (changesMatch) {
+    result.changesSummary = changesMatch[1]
+      .split('\n')
+      .filter(l => l.trim().startsWith('-'))
+      .map(l => l.replace(/^-\s*/, '').trim());
+  }
+
+  // Bullets Removed (collect all "Removed" mentions)
+  const removedRegex = /\*\*Removed:\*\*\s*"?([^"*\n]+)"?/g;
+  let removedMatch;
+  while ((removedMatch = removedRegex.exec(content)) !== null) {
+    result.bulletsRemoved.push(removedMatch[1].trim());
+  }
+
+  // Flagged for Review items
+  const flaggedMatch = content.match(/## Flagged for Review\s*\n([\s\S]*?)(?=\n##|$)/);
+  if (flaggedMatch) {
+    result.flaggedItems = flaggedMatch[1]
+      .split('\n')
+      .filter(l => l.trim().match(/^\d+\.\s/))
+      .map(l => l.replace(/^\d+\.\s*/, '').trim());
+  }
+
+  return result;
+}
+
+// Get tasks linked to a specific company-role
+function getLinkedTasks(company, role, tasksData) {
+  const jobRef = `${company} - ${role}`;
+  return (tasksData.tasks || []).filter(t =>
+    t.status === 'pending' &&
+    (t.linkedJobs || []).some(j =>
+      j.toLowerCase().includes(company.toLowerCase()) ||
+      jobRef.toLowerCase() === j.toLowerCase()
+    )
+  );
+}
+
+// Get contacts linked to a specific company-role
+function getLinkedContacts(company, role, networkData) {
+  const jobRef = `${company} - ${role}`;
+  return (networkData.contacts || []).filter(c =>
+    (c.interactions || []).some(i =>
+      (i.linkedJobs || []).some(j =>
+        j.toLowerCase().includes(company.toLowerCase()) ||
+        jobRef.toLowerCase() === j.toLowerCase()
+      )
+    )
+  );
+}
+
+// Read a file safely, returning null if not found
+function readFileSafe(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, 'utf8');
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+// Find a JD file in a folder (JD.md preferred, then any file with JD in name)
+function findJdFile(folderPath) {
+  try {
+    if (!fs.existsSync(folderPath)) return null;
+    const files = fs.readdirSync(folderPath);
+    // Prefer JD.md
+    if (files.includes('JD.md')) return path.join(folderPath, 'JD.md');
+    // Fallback: any .md with JD in name
+    const jdMd = files.find(f => f.includes('JD') && f.endsWith('.md'));
+    if (jdMd) return path.join(folderPath, jdMd);
+    return null;
+  } catch { return null; }
+}
+
+// Render fit score with color class
+function fitScoreClass(score) {
+  if (score === null) return 'fit-none';
+  if (score >= 90) return 'fit-exceptional';
+  if (score >= 85) return 'fit-strong';
+  if (score >= 78) return 'fit-good';
+  if (score >= 70) return 'fit-risk';
+  if (score >= 60) return 'fit-stretch';
+  return 'fit-weak';
 }
 
 // ============================================================
@@ -428,7 +597,7 @@ function generateHistoricalStats(historicalMetrics) {
 }
 
 // Generate active roles table HTML (Item #8 — adds data-updated attribute)
-function generateActiveTable(roles) {
+function generateActiveTable(roles, slugMap) {
   const sortedRoles = [...roles].sort((a, b) => {
     const stageA = STAGE_ORDER.indexOf(a.stage);
     const stageB = STAGE_ORDER.indexOf(b.stage);
@@ -442,9 +611,14 @@ function generateActiveTable(roles) {
       escapeHtml(role.company);
     const fitScore = getFitScore(role);
 
+    const slug = slugMap ? slugMap.get(`${role.company}|${role.role}`) : null;
+    const roleDisplay = slug && role.folder
+      ? `<a href="roles/${slug}.html">${escapeHtml(role.role)}</a>`
+      : escapeHtml(role.role);
+
     return `<tr data-stage="${role.stage}" data-fit="${fitScore !== null ? fitScore : ''}" data-updated="${role.updated || ''}">
       <td class="col-company">${companyLink}</td>
-      <td class="col-role">${escapeHtml(role.role)}</td>
+      <td class="col-role">${roleDisplay}</td>
       <td class="col-fit">${formatFitScore(fitScore)}</td>
       <td class="col-stage"><span class="badge badge-${stageToClass(role.stage)}">${escapeHtml(role.stage)}</span></td>
       <td class="col-next" title="${escapeHtml(role.next)}">${escapeHtml(role.next)}</td>
@@ -456,7 +630,7 @@ function generateActiveTable(roles) {
 }
 
 // Generate closed roles table HTML
-function generateClosedTable(roles) {
+function generateClosedTable(roles, slugMap) {
   const sortedRoles = [...roles].sort((a, b) => (b.closed || '').localeCompare(a.closed || ''));
 
   return sortedRoles.map(role => {
@@ -467,9 +641,14 @@ function generateClosedTable(roles) {
     const stageDisplay = role.stage || '-';
     const stageCls = role.stage ? stageToClass(role.stage) : '';
 
+    const slug = slugMap ? slugMap.get(`${role.company}|${role.role}`) : null;
+    const roleDisplay = slug && role.folder
+      ? `<a href="roles/${slug}.html">${escapeHtml(role.role)}</a>`
+      : escapeHtml(role.role);
+
     return `<tr>
       <td>${companyLink}</td>
-      <td>${escapeHtml(role.role)}</td>
+      <td>${roleDisplay}</td>
       <td>${stageCls ? `<span class="badge badge-${stageCls}">${escapeHtml(stageDisplay)}</span>` : stageDisplay}</td>
       <td><span class="badge badge-${outcomeClass}">${escapeHtml(role.outcome)}</span></td>
       <td>${formatDate(role.closed)}</td>
@@ -626,6 +805,220 @@ function generateRecentInteractionsTable(networkMetrics) {
 }
 
 // ============================================================
+// Section 4b: Detail Page Generation
+// ============================================================
+
+function generateDetailPage(role, slugMap, tasksData, networkData, isClosed) {
+  const folderPath = role.folder ? path.join(ROOT, role.folder) : null;
+  if (!folderPath || !fs.existsSync(folderPath)) return null;
+
+  // Read folder files
+  const analysisContent = readFileSafe(path.join(folderPath, 'comparison-analysis.md'));
+  const notesContent = readFileSafe(path.join(folderPath, 'notes.md'));
+  const researchContent = readFileSafe(path.join(folderPath, 'research-packet.md'));
+  const jdFilePath = findJdFile(folderPath);
+  const jdContent = jdFilePath ? readFileSafe(jdFilePath) : null;
+
+  // Parse analysis
+  const analysis = parseComparisonAnalysis(analysisContent);
+
+  // Get linked tasks and contacts
+  const linkedTasks = getLinkedTasks(role.company, role.role, tasksData);
+  const linkedContacts = getLinkedContacts(role.company, role.role, networkData);
+
+  // Determine stage info
+  const stage = isClosed ? (role.outcome || 'Closed') : (role.stage || 'Sourced');
+  const stageClass = isClosed ? (role.outcome ? role.outcome.toLowerCase() : 'sourced') : stageToClass(role.stage || 'Sourced');
+  const nextAction = isClosed ? `Closed: ${role.outcome || 'Unknown'}` : (role.next || '-');
+
+  // === Build section content (inner HTML only, no wrapper) ===
+
+  // 1. Fit Assessment
+  let fitAssessmentInner = '';
+  if (analysis) {
+    const scoreColorClass = fitScoreClass(analysis.overallScore);
+
+    const dimensionsHtml = analysis.dimensions.length > 0
+      ? `<table class="fit-dimensions">
+          <thead><tr><th>Dimension</th><th>Score</th><th>Notes</th></tr></thead>
+          <tbody>${analysis.dimensions.map(d =>
+            `<tr><td>${escapeHtml(d.name)}</td><td><span class="fit-score ${fitScoreClass(d.score)}">${d.score}/100</span></td><td>${escapeHtml(d.notes)}</td></tr>`
+          ).join('')}</tbody>
+        </table>`
+      : '';
+
+    const strengthsHtml = analysis.strengths.length > 0
+      ? `<h3>Key Strengths</h3><ul class="strength-list">${analysis.strengths.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+      : '';
+
+    const gapsHtml = analysis.gaps.length > 0
+      ? `<h3>Primary Gaps</h3><ul class="gap-list">${analysis.gaps.map(g => `<li>${escapeHtml(g)}</li>`).join('')}</ul>`
+      : '';
+
+    const flaggedHtml = analysis.flaggedItems.length > 0
+      ? `<h3>Flagged for Review</h3><ul class="gap-list">${analysis.flaggedItems.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
+      : '';
+
+    fitAssessmentInner = `
+      <div class="fit-score-large">
+        <span class="fit-score-number ${scoreColorClass}">${analysis.overallScore !== null ? analysis.overallScore : '—'}</span>
+        <div>
+          <div class="fit-score-label">${escapeHtml(analysis.overallLabel) || 'Overall Fit'}</div>
+          <div class="fit-score-label">out of 100</div>
+        </div>
+      </div>
+      ${dimensionsHtml}
+      ${strengthsHtml}
+      ${gapsHtml}
+      ${flaggedHtml}`;
+  } else {
+    fitAssessmentInner = `<div class="empty-section-hint">Not yet analyzed. Run: <code>Compare JD and resume for ${escapeHtml(role.company)}</code></div>`;
+  }
+
+  // 2. Tasks & Contacts
+  let tasksContactsInner = '';
+  if (linkedTasks.length > 0 || linkedContacts.length > 0) {
+    if (linkedTasks.length > 0) {
+      tasksContactsInner += `<h3 class="detail-subsection-title">Pending Tasks</h3>
+        <table class="detail-mini-table">
+          <thead><tr><th>Task</th><th>Due</th></tr></thead>
+          <tbody>${linkedTasks.map(t =>
+            `<tr><td>${escapeHtml(t.task)}</td><td>${t.due ? formatDate(t.due) : '—'}</td></tr>`
+          ).join('')}</tbody>
+        </table>`;
+    }
+    if (linkedContacts.length > 0) {
+      tasksContactsInner += `<h3 class="detail-subsection-title">Contacts</h3>
+        <table class="detail-mini-table">
+          <thead><tr><th>Name</th><th>Company</th><th>Last Contact</th></tr></thead>
+          <tbody>${linkedContacts.map(c => {
+            const lastI = c.interactions?.length ? c.interactions[c.interactions.length - 1] : null;
+            const lastStr = lastI ? `${formatDate(lastI.date)} (${lastI.type})` : '—';
+            return `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.company || '—')}</td><td>${lastStr}</td></tr>`;
+          }).join('')}</tbody>
+        </table>`;
+    }
+  }
+
+  // 3. Notes
+  const notesInner = notesContent
+    ? `<div class="markdown-content">${marked(notesContent)}</div>`
+    : `<div class="empty-section-hint">No notes yet. Notes are tracked in <code>notes.md</code> in the role folder.</div>`;
+
+  // 4. Job Description
+  const jdInner = jdContent
+    ? `<div class="markdown-content">${marked(jdContent)}</div>`
+    : `<div class="empty-section-hint">No JD file found. Add <code>JD.md</code> to the role folder.</div>`;
+
+  // 5. Resume Changes
+  let resumeChangesInner = '';
+  if (analysis && (analysis.changesSummary.length > 0 || analysis.bulletsRemoved.length > 0)) {
+    if (analysis.changesSummary.length > 0) {
+      resumeChangesInner += `<h3>Changes Made</h3><ul class="strength-list">${analysis.changesSummary.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>`;
+    }
+    if (analysis.bulletsRemoved.length > 0) {
+      resumeChangesInner += `<h3>Bullets Removed</h3><ul class="gap-list">${analysis.bulletsRemoved.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul>`;
+    }
+  }
+
+  // 6. Research Packet
+  const researchInner = researchContent
+    ? `<div class="markdown-content">${marked(researchContent)}</div>`
+    : '';
+
+  // === Assemble tabs: only include tabs that have content ===
+  // "Fit Assessment", "Notes", and "Job Description" always show (with empty hints).
+  // "Tasks & Contacts", "Resume Changes", "Research Packet" only if they have data.
+  const tabs = [];
+  tabs.push({ id: 'fit-assessment', label: 'Fit Assessment', content: fitAssessmentInner });
+  if (tasksContactsInner) tabs.push({ id: 'tasks-contacts', label: 'Tasks & Contacts', content: tasksContactsInner });
+  tabs.push({ id: 'notes', label: 'Notes', content: notesInner });
+  tabs.push({ id: 'job-description', label: 'Job Description', content: jdInner });
+  if (resumeChangesInner) tabs.push({ id: 'resume-changes', label: 'Resume Changes', content: resumeChangesInner });
+  if (researchInner) tabs.push({ id: 'research-packet', label: 'Research Packet', content: researchInner });
+
+  // Build tabbed HTML
+  const tabBar = tabs.map((t, i) =>
+    `<button class="detail-tab${i === 0 ? ' active' : ''}" data-tab="${t.id}">${escapeHtml(t.label)}</button>`
+  ).join('');
+
+  const tabPanels = tabs.map((t, i) =>
+    `<div class="detail-tab-panel" id="${t.id}"${i !== 0 ? ' hidden' : ''}>${t.content}</div>`
+  ).join('\n');
+
+  const tabbedContentHtml = `<div class="detail-tabs-wrapper">
+    <div class="detail-tab-bar">${tabBar}</div>
+    ${tabPanels}
+  </div>`;
+
+  // JD link for status bar
+  const jdLinkHtml = role.url
+    ? `<div class="status-bar-item">
+        <span class="status-bar-label">Job Posting</span>
+        <span class="status-bar-value"><a href="${escapeHtml(role.url)}" target="_blank" rel="noopener">View JD &rarr;</a></span>
+      </div>`
+    : '';
+
+  // Apply template
+  const detailStyles = ''; // Detail styles are already in the shared styles.css
+  const replacements = new Map([
+    ['STYLES', styles],
+    ['DETAIL_STYLES', detailStyles],
+    ['COMPANY', escapeHtml(role.company)],
+    ['ROLE', escapeHtml(role.role)],
+    ['STAGE', escapeHtml(stage)],
+    ['STAGE_CLASS', stageClass],
+    ['NEXT_ACTION', escapeHtml(nextAction)],
+    ['ADDED_DATE', formatDate(role.added)],
+    ['UPDATED_DATE', formatDate(isClosed ? role.closed : role.updated)],
+    ['JD_LINK', jdLinkHtml],
+    ['TABBED_CONTENT', tabbedContentHtml]
+  ]);
+
+  return detailTemplate.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (replacements.has(key)) return replacements.get(key);
+    return match;
+  });
+}
+
+function buildDetailPages(slugMap, tasksData, networkData) {
+  const rolesDir = path.join(DIST, 'roles');
+  if (!fs.existsSync(rolesDir)) {
+    fs.mkdirSync(rolesDir, { recursive: true });
+  }
+
+  let count = 0;
+
+  // Active roles
+  for (const role of (tracker.active || [])) {
+    if (!role.folder) continue;
+    const slug = slugMap.get(`${role.company}|${role.role}`);
+    if (!slug) continue;
+
+    const html = generateDetailPage(role, slugMap, tasksData, networkData, false);
+    if (html) {
+      fs.writeFileSync(path.join(rolesDir, `${slug}.html`), html);
+      count++;
+    }
+  }
+
+  // Closed roles with folders
+  for (const role of (tracker.closed || [])) {
+    if (!role.folder) continue;
+    const slug = slugMap.get(`${role.company}|${role.role}`);
+    if (!slug) continue;
+
+    const html = generateDetailPage(role, slugMap, tasksData, networkData, true);
+    if (html) {
+      fs.writeFileSync(path.join(rolesDir, `${slug}.html`), html);
+      count++;
+    }
+  }
+
+  return count;
+}
+
+// ============================================================
 // Section 5: Build Orchestration
 // ============================================================
 
@@ -641,6 +1034,13 @@ function build() {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit'
   });
+
+  // Build slug map for detail page links
+  const allRolesWithFolders = [
+    ...(tracker.active || []),
+    ...(tracker.closed || []).filter(r => r.folder)
+  ];
+  const slugMap = buildSlugMap(allRolesWithFolders);
 
   // Strip folder paths from data for JSON embed (privacy)
   const sanitizedTracker = {
@@ -661,8 +1061,8 @@ function build() {
     ['KPI_CARDS', generateKpiCards(currentMetrics)],
     ['CURRENT_PIPELINE', generateCurrentPipeline(currentMetrics)],
     ['HISTORICAL_STATS', generateHistoricalStats(historicalMetrics)],
-    ['ACTIVE_ROWS', generateActiveTable(tracker.active)],
-    ['CLOSED_ROWS', generateClosedTable(tracker.closed)],
+    ['ACTIVE_ROWS', generateActiveTable(tracker.active, slugMap)],
+    ['CLOSED_ROWS', generateClosedTable(tracker.closed, slugMap)],
     ['SKIPPED_ROWS', generateSkippedTable(tracker.skipped)],
     ['CLOSED_COUNT', String(historicalMetrics.closedCount)],
     ['SKIPPED_COUNT', String(historicalMetrics.skippedCount)],
@@ -696,6 +1096,10 @@ function build() {
   fs.writeFileSync(path.join(DIST, 'index.html'), html);
   console.log(`Built status page: ${path.join(DIST, 'index.html')}`);
   console.log(`Active: ${currentMetrics.activeCount} | Applied: ${currentMetrics.appliedCount} | Tasks: ${taskMetrics.pendingCount} | Contacts: ${networkMetrics.contactCount}`);
+
+  // Build detail pages
+  const detailCount = buildDetailPages(slugMap, tasks, network);
+  console.log(`Built ${detailCount} detail pages in ${path.join(DIST, 'roles/')}`);
 }
 
 build();
