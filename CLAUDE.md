@@ -14,7 +14,7 @@ When the user sends a greeting to start the session, respond with:
 
 | Command | Action |
 |---------|--------|
-| `"Run job search"` | Execute Gemini CLI, save to gemini-results.md, display roles |
+| `"Run job search"` | Call JobBot API, save to jobbot-results.json, display roles |
 | `"Setup #N"` or `"Setup [Company - Role]"` | Create folder + notes.md + add to data/tracker.json (collects JD URL) |
 | `"Skip #N"` or `"Skip #N, #M"` | Add to data/tracker.json skipped array |
 | `"Move [Company] to [Status]"` | Update data/tracker.json + move folder (e.g., "Move Stripe to Applied") |
@@ -39,7 +39,7 @@ When the user sends a greeting to start the session, respond with:
 - `data/InProgress/` - Active applications being worked on
 - `data/Applied/` - Submitted applications
 - `data/Rejected/` - Closed opportunities
-- `data/search-results/` - Search outputs (gemini-results.md)
+- `data/search-results/` - Search outputs (jobbot-results.json)
 - `/status-page/` - Cloudflare Pages dashboard (build.js, dist/)
 - `/.claude/agents/` - Subagent configuration files (`jd-resume-compare.md`, `interview-research.md`)
 
@@ -507,7 +507,7 @@ weasyprint resume.html "[Name] Resume.pdf"  # Name from data/profile.md
 
 | Command | Action |
 |---------|--------|
-| `"Run job search"` | Execute Gemini CLI → save to gemini-results.md → dedupe against data/tracker.json → display |
+| `"Run job search"` | Call JobBot API → save to jobbot-results.json → dedupe against data/tracker.json → display |
 | `"Setup #N"` or `"Setup [Company - Role]"` | Check tracker → collect JD (Chrome/Firecrawl) → create folder → add to data/tracker.json |
 | `"Skip #N"` or `"Skip #N, #M"` | Add role(s) to data/tracker.json skipped array |
 | `"Move [Company] to [Status]"` | Update data/tracker.json stage/status + move folder if needed |

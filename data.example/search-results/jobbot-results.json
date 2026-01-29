@@ -1,0 +1,24 @@
+{
+  "jobs": [
+    {
+      "id": "greenhouse-example-123",
+      "title": "Director of Platform Engineering",
+      "company": "Example Corp",
+      "location": "Remote - US",
+      "url": "https://boards.greenhouse.io/examplecorp/jobs/123",
+      "description": "Lead our platform engineering org...",
+      "postedDate": "2026-01-25",
+      "department": "Engineering",
+      "source": "greenhouse"
+    }
+  ],
+  "meta": {
+    "companiesSearched": ["Example Corp"],
+    "companiesNotSupported": [],
+    "totalCollected": 15,
+    "afterPreFilter": 3,
+    "afterExclusion": 2,
+    "afterLocation": 1,
+    "errors": []
+  }
+}

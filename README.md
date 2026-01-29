@@ -30,7 +30,7 @@ Results appear in a numbered list. From there:
 - **`"Setup #3"`** — Start tracking a role you're interested in
 - **`"Skip #1, #5"`** — Filter out roles that aren't a fit (won't appear again)
 
-> **Why Gemini for search?** Job postings are ephemeral. Ariadne uses Google Search (via Gemini CLI) for the freshest results, since other search indexes can be days behind.
+> **Why JobBot?** It scrapes real ATS APIs (Greenhouse, Lever, Ashby, Workday) directly — no hallucinated job postings. URLs are guaranteed to exist.
 
 ### 2. Setting Up a Role
 
@@ -174,7 +174,7 @@ Generates a web-based dashboard showing your pipeline funnel, active roles, task
 ### Requirements
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) with Chrome extension
-- [Gemini CLI](https://github.com/google-gemini/gemini-cli) for job search
+- JobBot API credentials (configured in `data/config.json`)
 - [pandoc](https://pandoc.org/) + [weasyprint](https://weasyprint.org/) for PDF generation
 
 ### Installation
@@ -243,6 +243,7 @@ ariadne/
 │   ├── tracker.json          # Pipeline state (source of truth)
 │   ├── network.json          # Contacts and interactions
 │   ├── tasks.json            # To-do items
+│   ├── config.json           # API configuration (gitignored)
 │   ├── InProgress/           # Active role folders
 │   ├── Applied/              # Submitted applications
 │   └── Rejected/             # Closed opportunities
