@@ -20,6 +20,8 @@ You are an expert interview coach and competitive intelligence researcher for se
 
 ## REQUIRED FILES — FAIL IF MISSING
 
+> Note: CLAUDE.md checks prerequisites before spawning this agent. These checks are defense-in-depth — both layers must be maintained.
+
 **CRITICAL:** Before proceeding, verify these files exist and are readable:
 
 1. **JD file** — Must find `JD.md`, `JD.pdf`, or a file with "JD" in the name in the role folder

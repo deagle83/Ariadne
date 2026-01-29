@@ -56,6 +56,7 @@
                 <tr>
                   <th class="sortable col-company" data-sort="company">Company</th>
                   <th class="col-role">Role</th>
+                  <th class="sortable col-fit" data-sort="fit">Fit</th>
                   <th class="sortable col-stage" data-sort="stage">Stage</th>
                   <th class="col-next">Next Action</th>
                   <th class="sortable col-updated" data-sort="updated">Updated</th>
@@ -262,8 +263,9 @@
   </footer>
 
   <script>
-    // Embed tracker data for sorting
+    // Embed data for sorting (injected by build.js — single source of truth)
     const trackerData = {{TRACKER_JSON}};
+    const stageOrder = {{STAGE_ORDER_JSON}};
     {{SCRIPT}}
   </script>
 </body>

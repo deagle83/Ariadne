@@ -5,16 +5,98 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const DIST = path.join(__dirname, 'dist');
 
-// Read source files
-const tracker = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'tracker.json'), 'utf8'));
-const network = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'network.json'), 'utf8'));
-const tasks = JSON.parse(fs.readFileSync(path.join(ROOT, 'data', 'tasks.json'), 'utf8'));
-const template = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
-const styles = fs.readFileSync(path.join(__dirname, 'styles.css'), 'utf8');
-const script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
+// ============================================================
+// Section 1: Data Loading (with error handling — Item #2)
+// ============================================================
 
-// Stage order for sorting and progression
+function loadJson(filePath, fallback) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (err) {
+    console.warn(`Warning: Error reading ${path.basename(filePath)}: ${err.message}`);
+    return fallback;
+  }
+}
+
+const tracker = loadJson(path.join(ROOT, 'data', 'tracker.json'), { active: [], skipped: [], closed: [] });
+const network = loadJson(path.join(ROOT, 'data', 'network.json'), { contacts: [] });
+const tasks = loadJson(path.join(ROOT, 'data', 'tasks.json'), { tasks: [] });
+
+let template, styles, script;
+try {
+  template = fs.readFileSync(path.join(__dirname, 'template.html'), 'utf8');
+  styles = fs.readFileSync(path.join(__dirname, 'styles.css'), 'utf8');
+  script = fs.readFileSync(path.join(__dirname, 'script.js'), 'utf8');
+} catch (err) {
+  console.error(`Fatal: Cannot read template files: ${err.message}`);
+  process.exit(1);
+}
+
+// Stage order for sorting and progression (single source of truth — Item #1)
 const STAGE_ORDER = ['Sourced', 'Applied', 'Phone Screen', 'Technical', 'Onsite', 'Offer', 'Negotiating'];
+
+// Valid outcomes for closed roles
+const VALID_OUTCOMES = ['Rejected', 'Withdrew', 'Accepted', 'Expired'];
+
+// ============================================================
+// Section 2: Utility Functions (Items #4, #5, #6)
+// ============================================================
+
+// Escape HTML (Item #5 — added single-quote escaping)
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+}
+
+// Convert stage name to CSS class (Item #6 — single helper)
+function stageToClass(stage) {
+  return stage.toLowerCase().replace(/\s+/g, '-');
+}
+
+// Extract linked items for display (Item #4 — deduplicated helper)
+function formatLinkedItems(task) {
+  return [
+    ...(task.linkedContacts || []),
+    ...(task.linkedJobs || []).map(j => j.split(' - ')[0])
+  ].join(', ');
+}
+
+// Format date for display
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Get ISO date string for N days ago (Item #7 — timezone-safe comparison)
+function isoDateDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+// Get today's ISO date string
+function isoToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Generic KPI card generator (Item #9 — single function replaces 3)
+function generateKpiCardsHtml(cards) {
+  return cards.map(({ value, label, warning }) =>
+    `<div class="kpi-card${warning ? ' kpi-warning' : ''}">
+      <div class="kpi-value">${value}</div>
+      <div class="kpi-label">${label}</div>
+    </div>`
+  ).join('\n');
+}
+
+// ============================================================
+// Section 3: Metric Computation (pure functions, no HTML)
+// ============================================================
 
 // Compute CURRENT metrics (active roles only)
 function computeCurrentMetrics(data) {
@@ -37,10 +119,9 @@ function computeCurrentMetrics(data) {
   const interviewingStages = STAGE_ORDER.slice(STAGE_ORDER.indexOf('Phone Screen'));
   const interviewingCount = active.filter(r => interviewingStages.includes(r.stage)).length;
 
-  // Updated this week: roles with activity in last 7 days
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const updatedThisWeek = active.filter(r => new Date(r.updated) >= oneWeekAgo).length;
+  // Updated this week (Item #7 — ISO string comparison)
+  const oneWeekAgoISO = isoDateDaysAgo(7);
+  const updatedThisWeek = active.filter(r => r.updated >= oneWeekAgoISO).length;
 
   return {
     activeCount: active.length,
@@ -144,50 +225,144 @@ function computeHistoricalMetrics(data) {
   };
 }
 
-// Format date for display
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+// Compute task metrics
+function computeTaskMetrics(tasksData) {
+  const allTasks = tasksData.tasks || [];
+  const pending = allTasks.filter(t => t.status === 'pending');
+  const completed = allTasks.filter(t => t.status === 'completed');
+
+  // Tasks due soon (within 3 days) — Item #7: ISO string comparison
+  const threeDaysFromNowISO = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().slice(0, 10);
+  })();
+  const dueSoon = pending.filter(t => t.due && t.due <= threeDaysFromNowISO);
+
+  // Overdue tasks — Item #7: ISO string comparison
+  const todayISO = isoToday();
+  const overdue = pending.filter(t => t.due && t.due < todayISO);
+
+  return {
+    pendingCount: pending.length,
+    completedCount: completed.length,
+    dueSoonCount: dueSoon.length,
+    overdueCount: overdue.length,
+    pending,
+    completed
+  };
 }
 
-// Escape HTML
-function escapeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+// Compute network metrics
+function computeNetworkMetrics(networkData) {
+  const contacts = networkData.contacts || [];
+
+  // Total interactions
+  const totalInteractions = contacts.reduce((sum, c) => sum + (c.interactions?.length || 0), 0);
+
+  // Recent interactions (last 7 days) — Item #7: ISO string comparison
+  const oneWeekAgoISO = isoDateDaysAgo(7);
+  const recentInteractions = contacts.flatMap(c =>
+    (c.interactions || [])
+      .filter(i => i.date >= oneWeekAgoISO)
+      .map(i => ({ ...i, contactName: c.name, contactId: c.id }))
+  ).sort((a, b) => b.date.localeCompare(a.date));
+
+  // Contacts with linked jobs
+  const contactsWithJobs = contacts.filter(c =>
+    (c.interactions || []).some(i => i.linkedJobs?.length > 0)
+  );
+
+  return {
+    contactCount: contacts.length,
+    totalInteractions,
+    recentInteractionCount: recentInteractions.length,
+    contactsWithJobsCount: contactsWithJobs.length,
+    contacts,
+    recentInteractions
+  };
 }
 
-// Generate KPI cards HTML (current state only)
+// Extract fit score from comparison-analysis.md in a role's folder
+function getFitScore(role) {
+  if (!role.folder) return null;
+  const analysisPath = path.join(ROOT, role.folder, 'comparison-analysis.md');
+  try {
+    if (!fs.existsSync(analysisPath)) {
+      // Item #17 — warn when folder exists but analysis file doesn't
+      const folderPath = path.join(ROOT, role.folder);
+      if (role.folder && !fs.existsSync(folderPath)) {
+        console.warn(`Warning: Folder not found for ${role.company} - ${role.role}: ${analysisPath}`);
+      }
+      return null;
+    }
+    const content = fs.readFileSync(analysisPath, 'utf8');
+    const match = content.match(/Overall Fit(?:\s*Score)?:.*?(\d+)\s*\/\s*100/i);
+    return match ? parseInt(match[1], 10) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Validate tracker data (Item #12)
+function validateTracker(data) {
+  const warnings = [];
+  const requiredFields = ['company', 'role', 'url', 'added'];
+
+  (data.active || []).forEach((entry, i) => {
+    requiredFields.forEach(field => {
+      if (!entry[field]) warnings.push(`active[${i}] missing required field: ${field}`);
+    });
+    if (entry.stage && !STAGE_ORDER.includes(entry.stage)) {
+      warnings.push(`active[${i}] invalid stage: "${entry.stage}"`);
+    }
+  });
+
+  (data.closed || []).forEach((entry, i) => {
+    requiredFields.forEach(field => {
+      if (!entry[field]) warnings.push(`closed[${i}] missing required field: ${field}`);
+    });
+    if (entry.outcome && !VALID_OUTCOMES.includes(entry.outcome)) {
+      warnings.push(`closed[${i}] invalid outcome: "${entry.outcome}"`);
+    }
+  });
+
+  warnings.forEach(w => console.warn(`Validation: ${w}`));
+  return warnings;
+}
+
+// ============================================================
+// Section 4: HTML Rendering Functions
+// ============================================================
+
+// Format fit score with color coding
+function formatFitScore(score) {
+  if (score === null) return '<span class="fit-score fit-none">—</span>';
+  let fitClass;
+  if (score >= 90) fitClass = 'fit-exceptional';
+  else if (score >= 85) fitClass = 'fit-strong';
+  else if (score >= 78) fitClass = 'fit-good';
+  else if (score >= 70) fitClass = 'fit-risk';
+  else if (score >= 60) fitClass = 'fit-stretch';
+  else fitClass = 'fit-weak';
+  return `<span class="fit-score ${fitClass}">${score}</span>`;
+}
+
+// Generate KPI cards HTML (current state only) — Item #9
 function generateKpiCards(currentMetrics) {
-  return `
-    <div class="kpi-card">
-      <div class="kpi-value">${currentMetrics.activeCount}</div>
-      <div class="kpi-label">Active Roles</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${currentMetrics.appliedCount}</div>
-      <div class="kpi-label">Applied</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${currentMetrics.updatedThisWeek}</div>
-      <div class="kpi-label">Updated This Week</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${currentMetrics.interviewingCount}</div>
-      <div class="kpi-label">Interviewing</div>
-    </div>
-  `;
+  return generateKpiCardsHtml([
+    { value: currentMetrics.activeCount, label: 'Active Roles' },
+    { value: currentMetrics.appliedCount, label: 'Applied' },
+    { value: currentMetrics.updatedThisWeek, label: 'Updated This Week' },
+    { value: currentMetrics.interviewingCount, label: 'Interviewing' }
+  ]);
 }
 
 // Generate CURRENT pipeline HTML (active roles only, exact counts)
 function generateCurrentPipeline(currentMetrics) {
   return STAGE_ORDER.map(stage => {
     const count = currentMetrics.currentPipeline[stage] || 0;
-    const stageClass = stage.toLowerCase().replace(/\s+/g, '-');
-    return `<button class="pipeline-stage ${stageClass}" data-stage="${stage}" ${count === 0 ? 'disabled' : ''}>
+    return `<button class="pipeline-stage ${stageToClass(stage)}" data-stage="${stage}" ${count === 0 ? 'disabled' : ''}>
       <span class="stage-name">${stage}</span>
       <span class="stage-count">${count}</span>
     </button>`;
@@ -198,10 +373,9 @@ function generateCurrentPipeline(currentMetrics) {
 function generateHistoricalPipeline(historicalMetrics) {
   return STAGE_ORDER.map((stage, index) => {
     const count = historicalMetrics.historicalPipeline[stage] || 0;
-    const stageClass = stage.toLowerCase().replace(/\s+/g, '-');
     const rate = index > 0 ? historicalMetrics.conversionRates[stage] : null;
     const rateHtml = rate !== null ? `<span class="conversion-rate">${rate}%</span>` : '';
-    return `<div class="historical-stage ${stageClass}">
+    return `<div class="historical-stage ${stageToClass(stage)}">
       <span class="stage-name">${stage}</span>
       <span class="stage-count">${count}</span>
       ${rateHtml}
@@ -253,25 +427,26 @@ function generateHistoricalStats(historicalMetrics) {
   `;
 }
 
-// Generate active roles table HTML
+// Generate active roles table HTML (Item #8 — adds data-updated attribute)
 function generateActiveTable(roles) {
   const sortedRoles = [...roles].sort((a, b) => {
     const stageA = STAGE_ORDER.indexOf(a.stage);
     const stageB = STAGE_ORDER.indexOf(b.stage);
     if (stageB !== stageA) return stageB - stageA; // Higher stage first
-    return new Date(b.updated) - new Date(a.updated); // More recent first
+    return (b.updated || '').localeCompare(a.updated || ''); // More recent first
   });
 
   const rows = sortedRoles.map(role => {
-    const stageClass = role.stage.toLowerCase().replace(/\s+/g, '-');
     const companyLink = role.url ?
       `<a href="${escapeHtml(role.url)}" target="_blank" rel="noopener">${escapeHtml(role.company)}</a>` :
       escapeHtml(role.company);
+    const fitScore = getFitScore(role);
 
-    return `<tr data-stage="${role.stage}">
+    return `<tr data-stage="${role.stage}" data-fit="${fitScore !== null ? fitScore : ''}" data-updated="${role.updated || ''}">
       <td class="col-company">${companyLink}</td>
       <td class="col-role">${escapeHtml(role.role)}</td>
-      <td class="col-stage"><span class="badge badge-${stageClass}">${escapeHtml(role.stage)}</span></td>
+      <td class="col-fit">${formatFitScore(fitScore)}</td>
+      <td class="col-stage"><span class="badge badge-${stageToClass(role.stage)}">${escapeHtml(role.stage)}</span></td>
       <td class="col-next" title="${escapeHtml(role.next)}">${escapeHtml(role.next)}</td>
       <td class="col-updated">${formatDate(role.updated)}</td>
     </tr>`;
@@ -282,7 +457,7 @@ function generateActiveTable(roles) {
 
 // Generate closed roles table HTML
 function generateClosedTable(roles) {
-  const sortedRoles = [...roles].sort((a, b) => new Date(b.closed) - new Date(a.closed));
+  const sortedRoles = [...roles].sort((a, b) => (b.closed || '').localeCompare(a.closed || ''));
 
   return sortedRoles.map(role => {
     const outcomeClass = role.outcome.toLowerCase();
@@ -290,12 +465,12 @@ function generateClosedTable(roles) {
       `<a href="${escapeHtml(role.url)}" target="_blank" rel="noopener">${escapeHtml(role.company)}</a>` :
       escapeHtml(role.company);
     const stageDisplay = role.stage || '-';
-    const stageClass = role.stage ? role.stage.toLowerCase().replace(/\s+/g, '-') : '';
+    const stageCls = role.stage ? stageToClass(role.stage) : '';
 
     return `<tr>
       <td>${companyLink}</td>
       <td>${escapeHtml(role.role)}</td>
-      <td>${stageClass ? `<span class="badge badge-${stageClass}">${escapeHtml(stageDisplay)}</span>` : stageDisplay}</td>
+      <td>${stageCls ? `<span class="badge badge-${stageCls}">${escapeHtml(stageDisplay)}</span>` : stageDisplay}</td>
       <td><span class="badge badge-${outcomeClass}">${escapeHtml(role.outcome)}</span></td>
       <td>${formatDate(role.closed)}</td>
     </tr>`;
@@ -304,7 +479,7 @@ function generateClosedTable(roles) {
 
 // Generate skipped roles table HTML
 function generateSkippedTable(roles) {
-  const sortedRoles = [...roles].sort((a, b) => new Date(b.added) - new Date(a.added));
+  const sortedRoles = [...roles].sort((a, b) => (b.added || '').localeCompare(a.added || ''));
 
   return sortedRoles.map(role => {
     const companyLink = role.url ?
@@ -320,100 +495,30 @@ function generateSkippedTable(roles) {
   }).join('\n');
 }
 
-// Compute task metrics
-function computeTaskMetrics(tasksData) {
-  const allTasks = tasksData.tasks || [];
-  const pending = allTasks.filter(t => t.status === 'pending');
-  const completed = allTasks.filter(t => t.status === 'completed');
-
-  // Tasks due soon (within 3 days)
-  const threeDaysFromNow = new Date();
-  threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-  const dueSoon = pending.filter(t => t.due && new Date(t.due) <= threeDaysFromNow);
-
-  // Overdue tasks
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const overdue = pending.filter(t => t.due && new Date(t.due) < today);
-
-  return {
-    pendingCount: pending.length,
-    completedCount: completed.length,
-    dueSoonCount: dueSoon.length,
-    overdueCount: overdue.length,
-    pending,
-    completed
-  };
-}
-
-// Compute network metrics
-function computeNetworkMetrics(networkData) {
-  const contacts = networkData.contacts || [];
-
-  // Total interactions
-  const totalInteractions = contacts.reduce((sum, c) => sum + (c.interactions?.length || 0), 0);
-
-  // Recent interactions (last 7 days)
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const recentInteractions = contacts.flatMap(c =>
-    (c.interactions || [])
-      .filter(i => new Date(i.date) >= oneWeekAgo)
-      .map(i => ({ ...i, contactName: c.name, contactId: c.id }))
-  ).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  // Contacts with linked jobs
-  const contactsWithJobs = contacts.filter(c =>
-    (c.interactions || []).some(i => i.linkedJobs?.length > 0)
-  );
-
-  return {
-    contactCount: contacts.length,
-    totalInteractions,
-    recentInteractionCount: recentInteractions.length,
-    contactsWithJobsCount: contactsWithJobs.length,
-    contacts,
-    recentInteractions
-  };
-}
-
-// Generate tasks KPI cards
+// Generate tasks KPI cards — Item #9
 function generateTaskKpiCards(taskMetrics) {
-  return `
-    <div class="kpi-card">
-      <div class="kpi-value">${taskMetrics.pendingCount}</div>
-      <div class="kpi-label">Pending Tasks</div>
-    </div>
-    <div class="kpi-card ${taskMetrics.overdueCount > 0 ? 'kpi-warning' : ''}">
-      <div class="kpi-value">${taskMetrics.overdueCount}</div>
-      <div class="kpi-label">Overdue</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${taskMetrics.dueSoonCount}</div>
-      <div class="kpi-label">Due Soon</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${taskMetrics.completedCount}</div>
-      <div class="kpi-label">Completed</div>
-    </div>
-  `;
+  return generateKpiCardsHtml([
+    { value: taskMetrics.pendingCount, label: 'Pending Tasks' },
+    { value: taskMetrics.overdueCount, label: 'Overdue', warning: taskMetrics.overdueCount > 0 },
+    { value: taskMetrics.dueSoonCount, label: 'Due Soon' },
+    { value: taskMetrics.completedCount, label: 'Completed' }
+  ]);
 }
 
-// Generate pending tasks table
+// Generate pending tasks table (Item #4 — uses formatLinkedItems helper)
 function generatePendingTasksTable(taskMetrics) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayISO = isoToday();
 
   const sortedTasks = [...taskMetrics.pending].sort((a, b) => {
     // Overdue first, then by due date, then by created date
-    const aOverdue = a.due && new Date(a.due) < today;
-    const bOverdue = b.due && new Date(b.due) < today;
+    const aOverdue = a.due && a.due < todayISO;
+    const bOverdue = b.due && b.due < todayISO;
     if (aOverdue && !bOverdue) return -1;
     if (!aOverdue && bOverdue) return 1;
-    if (a.due && b.due) return new Date(a.due) - new Date(b.due);
+    if (a.due && b.due) return a.due.localeCompare(b.due);
     if (a.due && !b.due) return -1;
     if (!a.due && b.due) return 1;
-    return new Date(b.created) - new Date(a.created);
+    return (b.created || '').localeCompare(a.created || '');
   });
 
   if (sortedTasks.length === 0) {
@@ -421,11 +526,8 @@ function generatePendingTasksTable(taskMetrics) {
   }
 
   return sortedTasks.map(task => {
-    const isOverdue = task.due && new Date(task.due) < today;
-    const linkedItems = [
-      ...(task.linkedContacts || []),
-      ...(task.linkedJobs || []).map(j => j.split(' - ')[0])
-    ].join(', ');
+    const isOverdue = task.due && task.due < todayISO;
+    const linkedItems = formatLinkedItems(task);
 
     return `<tr class="${isOverdue ? 'overdue' : ''}">
       <td class="col-task">${escapeHtml(task.task)}</td>
@@ -436,10 +538,10 @@ function generatePendingTasksTable(taskMetrics) {
   }).join('\n');
 }
 
-// Generate completed tasks table
+// Generate completed tasks table (Item #4, #16 — sort by completed date)
 function generateCompletedTasksTable(taskMetrics) {
   const sortedTasks = [...taskMetrics.completed]
-    .sort((a, b) => new Date(b.created) - new Date(a.created))
+    .sort((a, b) => (b.completed || b.created || '').localeCompare(a.completed || a.created || ''))
     .slice(0, 10); // Show last 10
 
   if (sortedTasks.length === 0) {
@@ -447,48 +549,33 @@ function generateCompletedTasksTable(taskMetrics) {
   }
 
   return sortedTasks.map(task => {
-    const linkedItems = [
-      ...(task.linkedContacts || []),
-      ...(task.linkedJobs || []).map(j => j.split(' - ')[0])
-    ].join(', ');
+    const linkedItems = formatLinkedItems(task);
+    const completedDate = task.completed || task.created;
 
     return `<tr>
       <td class="col-task">${escapeHtml(task.task)}</td>
       <td class="col-linked">${escapeHtml(linkedItems) || '—'}</td>
-      <td class="col-created">${formatDate(task.created)}</td>
+      <td class="col-created">${formatDate(completedDate)}</td>
     </tr>`;
   }).join('\n');
 }
 
-// Generate network KPI cards
+// Generate network KPI cards — Item #9
 function generateNetworkKpiCards(networkMetrics) {
-  return `
-    <div class="kpi-card">
-      <div class="kpi-value">${networkMetrics.contactCount}</div>
-      <div class="kpi-label">Contacts</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${networkMetrics.totalInteractions}</div>
-      <div class="kpi-label">Total Interactions</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${networkMetrics.recentInteractionCount}</div>
-      <div class="kpi-label">This Week</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${networkMetrics.contactsWithJobsCount}</div>
-      <div class="kpi-label">Linked to Jobs</div>
-    </div>
-  `;
+  return generateKpiCardsHtml([
+    { value: networkMetrics.contactCount, label: 'Contacts' },
+    { value: networkMetrics.totalInteractions, label: 'Total Interactions' },
+    { value: networkMetrics.recentInteractionCount, label: 'This Week' },
+    { value: networkMetrics.contactsWithJobsCount, label: 'Linked to Jobs' }
+  ]);
 }
 
 // Generate contacts table
 function generateContactsTable(networkMetrics) {
   const sortedContacts = [...networkMetrics.contacts].sort((a, b) => {
-    // Sort by most recent interaction
-    const aLast = a.interactions?.length ? new Date(a.interactions[a.interactions.length - 1].date) : new Date(a.added);
-    const bLast = b.interactions?.length ? new Date(b.interactions[b.interactions.length - 1].date) : new Date(b.added);
-    return bLast - aLast;
+    const aLast = a.interactions?.length ? a.interactions[a.interactions.length - 1].date : a.added;
+    const bLast = b.interactions?.length ? b.interactions[b.interactions.length - 1].date : b.added;
+    return (bLast || '').localeCompare(aLast || '');
   });
 
   if (sortedContacts.length === 0) {
@@ -538,8 +625,14 @@ function generateRecentInteractionsTable(networkMetrics) {
   }).join('\n');
 }
 
-// Build the page
+// ============================================================
+// Section 5: Build Orchestration
+// ============================================================
+
 function build() {
+  // Validate tracker data (Item #12)
+  validateTracker(tracker);
+
   const currentMetrics = computeCurrentMetrics(tracker);
   const historicalMetrics = computeHistoricalMetrics(tracker);
   const taskMetrics = computeTaskMetrics(tasks);
@@ -556,31 +649,44 @@ function build() {
     skipped: tracker.skipped
   };
 
-  let html = template
-    .replace('{{STYLES}}', styles)
-    .replace('{{SCRIPT}}', script)
-    .replace('{{LAST_UPDATED}}', now)
-    .replace('{{KPI_CARDS}}', generateKpiCards(currentMetrics))
-    .replace('{{CURRENT_PIPELINE}}', generateCurrentPipeline(currentMetrics))
-    .replace('{{HISTORICAL_STATS}}', generateHistoricalStats(historicalMetrics))
-    .replace('{{ACTIVE_ROWS}}', generateActiveTable(tracker.active))
-    .replace('{{CLOSED_ROWS}}', generateClosedTable(tracker.closed))
-    .replace('{{SKIPPED_ROWS}}', generateSkippedTable(tracker.skipped))
-    .replace('{{CLOSED_COUNT}}', historicalMetrics.closedCount)
-    .replace('{{SKIPPED_COUNT}}', historicalMetrics.skippedCount)
-    .replace('{{TRACKER_JSON}}', JSON.stringify(sanitizedTracker))
-    // Task tab replacements
-    .replace('{{TASK_KPI_CARDS}}', generateTaskKpiCards(taskMetrics))
-    .replace('{{PENDING_TASKS_ROWS}}', generatePendingTasksTable(taskMetrics))
-    .replace('{{COMPLETED_TASKS_ROWS}}', generateCompletedTasksTable(taskMetrics))
-    .replace('{{PENDING_COUNT}}', taskMetrics.pendingCount)
-    .replace('{{COMPLETED_COUNT}}', taskMetrics.completedCount)
-    // Network tab replacements
-    .replace('{{NETWORK_KPI_CARDS}}', generateNetworkKpiCards(networkMetrics))
-    .replace('{{CONTACTS_ROWS}}', generateContactsTable(networkMetrics))
-    .replace('{{RECENT_INTERACTIONS_ROWS}}', generateRecentInteractionsTable(networkMetrics))
-    .replace('{{CONTACTS_COUNT}}', networkMetrics.contactCount)
-    .replace('{{INTERACTIONS_COUNT}}', networkMetrics.recentInteractions.length);
+  // Item #13 — prevent </script> breakout in JSON embed
+  const safeTrackerJson = JSON.stringify(sanitizedTracker).replace(/</g, '\\u003c');
+  const safeStageOrderJson = JSON.stringify(STAGE_ORDER).replace(/</g, '\\u003c');
+
+  // Item #3 — single-pass template replacement
+  const replacements = new Map([
+    ['STYLES', styles],
+    ['SCRIPT', script],
+    ['LAST_UPDATED', now],
+    ['KPI_CARDS', generateKpiCards(currentMetrics)],
+    ['CURRENT_PIPELINE', generateCurrentPipeline(currentMetrics)],
+    ['HISTORICAL_STATS', generateHistoricalStats(historicalMetrics)],
+    ['ACTIVE_ROWS', generateActiveTable(tracker.active)],
+    ['CLOSED_ROWS', generateClosedTable(tracker.closed)],
+    ['SKIPPED_ROWS', generateSkippedTable(tracker.skipped)],
+    ['CLOSED_COUNT', String(historicalMetrics.closedCount)],
+    ['SKIPPED_COUNT', String(historicalMetrics.skippedCount)],
+    ['TRACKER_JSON', safeTrackerJson],
+    ['STAGE_ORDER_JSON', safeStageOrderJson],
+    // Task tab
+    ['TASK_KPI_CARDS', generateTaskKpiCards(taskMetrics)],
+    ['PENDING_TASKS_ROWS', generatePendingTasksTable(taskMetrics)],
+    ['COMPLETED_TASKS_ROWS', generateCompletedTasksTable(taskMetrics)],
+    ['PENDING_COUNT', String(taskMetrics.pendingCount)],
+    ['COMPLETED_COUNT', String(taskMetrics.completedCount)],
+    // Network tab
+    ['NETWORK_KPI_CARDS', generateNetworkKpiCards(networkMetrics)],
+    ['CONTACTS_ROWS', generateContactsTable(networkMetrics)],
+    ['RECENT_INTERACTIONS_ROWS', generateRecentInteractionsTable(networkMetrics)],
+    ['CONTACTS_COUNT', String(networkMetrics.contactCount)],
+    ['INTERACTIONS_COUNT', String(networkMetrics.recentInteractions.length)]
+  ]);
+
+  let html = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (replacements.has(key)) return replacements.get(key);
+    console.warn(`Warning: Unreplaced placeholder found: {{${key}}}`);
+    return match;
+  });
 
   // Ensure dist directory exists
   if (!fs.existsSync(DIST)) {

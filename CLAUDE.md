@@ -37,7 +37,7 @@ When the user sends a greeting to start the session, respond with:
 **Directory Structure:**
 - `/prompts/` - Prompt templates (gemini-search-prompt.md for job search)
 - `data/InProgress/` - Active applications being worked on
-- `data/data/Applied/` - Submitted applications
+- `data/Applied/` - Submitted applications
 - `data/Rejected/` - Closed opportunities
 - `data/search-results/` - Search outputs (gemini-results.md)
 - `/status-page/` - Cloudflare Pages dashboard (build.js, dist/)
@@ -52,7 +52,7 @@ When the user sends a greeting to start the session, respond with:
 - `resume.css` - Stylesheet for PDF generation (pandoc + weasyprint)
 - `notes-template.md` - Template for role-specific tracking
 - `prompts/gemini-search-prompt.md` - Gemini CLI job search prompt
-- `data/data/search-results/gemini-results.md` - Latest job search output
+- `data/search-results/gemini-results.md` - Latest job search output
 - `README.md` - Full documentation
 
 ## data/tracker.json Schema
@@ -70,7 +70,7 @@ When the user sends a greeting to start the session, respond with:
       "url": "https://stripe.com/jobs/123",
       "added": "2026-01-20",
       "updated": "2026-01-24",
-      "folder": "data/data/InProgress/Stripe - DevEx Lead"
+      "folder": "data/InProgress/Stripe - DevEx Lead"
     }
   ],
   "skipped": [
@@ -91,7 +91,7 @@ When the user sends a greeting to start the session, respond with:
       "url": "https://databricks.com/jobs/012",
       "added": "2026-01-05",
       "closed": "2026-01-21",
-      "folder": "data/data/Rejected/Databricks - DevEx Manager"
+      "folder": "data/Rejected/Databricks - DevEx Manager"
     }
   ]
 }
@@ -199,6 +199,7 @@ When the user sends a greeting to start the session, respond with:
 | linkedJobs | No | Array of job references (format: "Company - Role") |
 | status | Yes | One of: `pending`, `completed` |
 | created | Yes | Date created (YYYY-MM-DD) |
+| completed | No | Date completed (YYYY-MM-DD), null if pending |
 
 **Note:** The `next` field in data/tracker.json remains as a quick status indicator for each job. Tasks in tasks.json are granular action items with optional due dates.
 
@@ -297,6 +298,20 @@ When user says `"Skip #N"` or `"Skip #N, #M"`:
    ```
 3. Write entire file back
 4. Confirm skipped
+
+### Stage Changes — CRITICAL RULE
+
+**ANY time a role's `stage` changes — regardless of how the user phrases it (e.g., "update to applied", "applied", "Move X to Y") — you MUST:**
+1. Update `stage` and `updated` fields in data/tracker.json
+2. Move the physical folder to the correct directory (`InProgress/` → `Applied/`, or `Applied/` → `Rejected/`, etc.)
+3. Update the `folder` field in data/tracker.json to match the new path
+
+**Directory mapping:**
+- `Sourced` → `data/InProgress/`
+- `Applied`, `Phone Screen`, `Technical`, `Onsite`, `Offer`, `Negotiating` → `data/Applied/`
+- Any closed outcome (`Rejected`, `Withdrew`, `Accepted`, `Expired`) → `data/Rejected/`
+
+This rule applies even if the user doesn't use the formal "Move" command syntax.
 
 ### Move Command
 
@@ -419,7 +434,7 @@ When user says `"Compare JD and resume for [Company]"`:
 2. **Generate PDF** → Convert markdown to PDF:
 ```bash
 cd "[Role Folder]"
-pandoc resume-draft.md -o resume.html --css="../../resume.css" --embed-resources --standalone
+pandoc resume-draft.md -o resume.html --css="../../../resume.css" --embed-resources --standalone
 weasyprint resume.html "[Name] Resume.pdf"  # Name from data/profile.md
 ```
 

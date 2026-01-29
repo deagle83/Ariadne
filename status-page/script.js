@@ -1,7 +1,6 @@
-// Stage order for sorting
-const STAGE_ORDER = ['Sourced', 'Applied', 'Phone Screen', 'Technical', 'Onsite', 'Offer', 'Negotiating'];
+// STAGE_ORDER is injected by build.js via template — single source of truth (Item #1)
 
-// Tab switching (scaffolded for future - currently only Applications tab is enabled)
+// Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.disabled) return;
@@ -104,12 +103,16 @@ document.querySelectorAll('.roles-table th.sortable').forEach(th => {
       if (column === 'company') {
         aVal = a.querySelector('.col-company').textContent.toLowerCase();
         bVal = b.querySelector('.col-company').textContent.toLowerCase();
+      } else if (column === 'fit') {
+        aVal = a.dataset.fit ? parseInt(a.dataset.fit) : -1;
+        bVal = b.dataset.fit ? parseInt(b.dataset.fit) : -1;
       } else if (column === 'stage') {
-        aVal = STAGE_ORDER.indexOf(a.dataset.stage);
-        bVal = STAGE_ORDER.indexOf(b.dataset.stage);
+        aVal = stageOrder.indexOf(a.dataset.stage);
+        bVal = stageOrder.indexOf(b.dataset.stage);
       } else if (column === 'updated') {
-        aVal = new Date(a.querySelector('.col-updated').textContent);
-        bVal = new Date(b.querySelector('.col-updated').textContent);
+        // Item #8 — use data-updated attribute (ISO string) instead of parsing display text
+        aVal = a.dataset.updated || '';
+        bVal = b.dataset.updated || '';
       }
 
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;

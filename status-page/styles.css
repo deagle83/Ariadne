@@ -486,7 +486,21 @@ a:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.col-fit { min-width: 50px; text-align: center; }
 .col-updated { min-width: 80px; white-space: nowrap; }
+
+/* Fit Scores */
+.fit-score {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.fit-none { color: var(--color-text-muted); }
+.fit-exceptional { color: #059669; }
+.fit-strong { color: #0d9488; }
+.fit-good { color: #2563eb; }
+.fit-risk { color: #d97706; }
+.fit-stretch { color: #ea580c; }
+.fit-weak { color: #dc2626; }
 
 /* Badges */
 .badge {
@@ -698,7 +712,7 @@ a:hover {
   }
 }
 
-/* Print styles */
+/* Print styles (Item #14 — show data, hide interactive elements) */
 @media print {
   .header {
     background: none;
@@ -708,13 +722,37 @@ a:hover {
 
   .tab-nav,
   .pipeline-section,
-  .collapsible-section,
   .clear-filter {
     display: none;
   }
 
-  .table-section {
+  /* Show all tab content sequentially */
+  .tab-content {
+    display: block !important;
+  }
+
+  /* Expand all collapsible sections */
+  .collapsible-content[hidden] {
+    display: block !important;
+  }
+
+  .collapse-icon {
+    display: none;
+  }
+
+  .collapsible-header {
+    cursor: default;
+  }
+
+  .table-section,
+  .collapsible-section {
     box-shadow: none;
     border: none;
+    break-inside: avoid;
+  }
+
+  .kpi-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
   }
 }
