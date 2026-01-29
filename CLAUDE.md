@@ -35,7 +35,7 @@ When the user sends a greeting to start the session, respond with:
 ## Quick Reference
 
 **Directory Structure:**
-- `/prompts/` - Prompt templates (gemini-search-prompt.md for job search)
+- `/prompts/` - Prompt templates and archived search prompts
 - `data/InProgress/` - Active applications being worked on
 - `data/Applied/` - Submitted applications
 - `data/Rejected/` - Closed opportunities
@@ -51,8 +51,8 @@ When the user sends a greeting to start the session, respond with:
 - `data/work-stories.md` - Interview stories indexed by theme/keyword (cross-reference during JD comparison)
 - `resume.css` - Stylesheet for PDF generation (pandoc + weasyprint)
 - `notes-template.md` - Template for role-specific tracking
-- `prompts/gemini-search-prompt.md` - Gemini CLI job search prompt
-- `data/search-results/gemini-results.md` - Latest job search output
+- `data/config.json` - JobBot API endpoint and key (gitignored)
+- `data/search-results/jobbot-results.json` - Latest job search output
 - `README.md` - Full documentation
 
 ## data/tracker.json Schema
@@ -212,7 +212,7 @@ When user says `"Run job search"`:
 **Step 1: Load search criteria and config**
 
 Read these files:
-- `data/search-criteria.md` — Extract target companies from "Target Companies" section
+- `data/search-criteria.md` — Extract target companies, role level keywords, and location keywords
 - `data/config.json` — Get JobBot endpoint URL and API key
 - `data/tracker.json` — Collect all URLs to exclude (active, skipped, closed)
 
@@ -234,15 +234,15 @@ curl -X POST "${config.jobbot.endpoint}" \
   -H "Content-Type: application/json" \
   -H "x-api-key: ${config.jobbot.apiKey}" \
   -d '{
-    "companies": ["Anthropic", "Stripe", "Netflix", ...],
-    "roleLevels": ["Senior", "Staff", "Principal"],
-    "locations": ["Remote", "USA", "United States"],
+    "companies": [from search-criteria.md Target Companies],
+    "roleLevels": [from search-criteria.md Role Levels],
+    "locations": [from search-criteria.md Location Keywords],
     "maxAgeDays": 14,
-    "excludeUrls": [...]
+    "excludeUrls": [from tracker.json all arrays]
   }'
 ```
 
-**Note:** The `locations` parameter filters jobs by location keywords. Extract location preferences from `data/search-criteria.md` (e.g., "Remote US" → `["Remote", "USA", "United States", "US"]`).
+**Note:** All search parameters (`companies`, `roleLevels`, `locations`) are extracted from `data/search-criteria.md`. The user's actual criteria file is the single source of truth — do not hardcode values.
 
 **Step 4: Handle response**
 
@@ -281,6 +281,13 @@ Show jobs in numbered table format:
 | # | Company | Role | Location | Posted | Link |
 |---|---------|------|----------|--------|------|
 | 1 | Anthropic | Staff Software Engineer, Infrastructure | SF / NYC / Seattle | Jan 25 | [Apply](url) |
+
+Show only NEW roles not found in data/tracker.json. For each result, indicate:
+- **NEW** — not in tracker
+- **TRACKING** — in active array (show stage)
+- **APPLIED** — in active array with stage >= Applied
+- **SKIPPED** — in skipped array
+- **CLOSED** — in closed array
 
 Include meta summary:
 - Searched: X companies
