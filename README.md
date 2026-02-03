@@ -1,104 +1,128 @@
 # Ariadne
 
-A Claude Code-powered job search assistant that helps you find opportunities, tailor resumes, track applications, and manage your professional network — all through natural conversation.
-
-## What is Ariadne?
-
-Job searching is overwhelming. You're juggling dozens of applications, customizing resumes for each role, tracking where you are in various interview processes, following up with contacts, and trying not to let anything slip through the cracks.
-
-Ariadne is your AI-powered job search co-pilot. It uses [Claude Code](https://docs.anthropic.com/en/docs/claude-code) to understand natural language commands and automate the tedious parts of job hunting while keeping you in control of the important decisions.
+A Claude Code-powered job search assistant. Find opportunities, tailor resumes, track applications, and manage your network — conversationally.
 
 **Named after the Greek mythological figure who gave Theseus a thread to navigate the labyrinth**, Ariadne helps you find your way through the maze of modern job searching.
 
 ---
 
-## The Job Search Pipeline
+## Quick Start
 
-Ariadne follows your journey from discovering opportunities to landing offers. Here's how it works at each stage:
+```bash
+git clone https://github.com/yourname/ariadne.git
+cd ariadne
+claude
+```
+
+Then say hello:
+
+```
+> Good morning
+
+Good morning! I see this is your first time here. Let's get you set up...
+```
+
+Ariadne detects first run and walks you through setup. You'll be tracking jobs in under 5 minutes.
+
+---
+
+## What to Have Ready
+
+| Item | Required? | Notes |
+|------|-----------|-------|
+| Your resume | Recommended | Text, PDF, or markdown. Ariadne analyzes it to pre-fill your profile. |
+| Target companies | Optional | Have a mental list — add more later. |
+| Target roles/levels | Optional | e.g., "Staff Engineer", "Engineering Manager", "Director" |
+| Job search API key | Optional | JobBot or Gemini CLI. Not needed if adding jobs manually. |
+
+Missing something? Setup lets you skip and configure later.
+
+---
+
+## The Job Search Pipeline
 
 ### 1. Finding Opportunities
 
-Start your search with a simple command:
-
+**Automated search:**
 ```
 "Run job search"
 ```
 
-Ariadne executes a targeted search using your criteria (role types, companies, location preferences) and returns fresh results. It automatically filters out roles you've already seen, skipped, or applied to — so you only see what's new.
+Ariadne searches your criteria, returning fresh results and filtering out roles you've seen.
 
-Results appear in a numbered list. From there:
-- **`"Setup #3"`** — Start tracking a role you're interested in
-- **`"Skip #1, #5"`** — Filter out roles that aren't a fit (won't appear again)
+**Manual addition:**
 
-> **Why JobBot?** It scrapes real ATS APIs (Greenhouse, Lever, Ashby, Workday) directly — no hallucinated job postings. URLs are guaranteed to exist.
+Found a job on LinkedIn or through a referral? Use `"Setup Stripe - Platform Lead"` — see [Setting Up a Role](#2-setting-up-a-role).
 
 ### 2. Setting Up a Role
-
-When you find a promising opportunity:
 
 ```
 "Setup Stripe - Platform Lead"
 ```
 
 Ariadne will:
-1. Check if you're already tracking this role (prevents duplicates)
+1. Check for duplicates
 2. Grab the job description from your browser or ask for the URL
-3. Create a dedicated folder with tracking notes
+3. Create a folder with tracking notes
 4. Add it to your pipeline as "Sourced"
 
-Each role gets its own folder containing the JD, your tailored resume, interview notes, and any other artifacts.
+Each role gets its own folder containing the JD, tailored resume, and interview notes.
 
-### 3. Preparing for Interviews
+**Browser integration:** With Claude-in-Chrome or Firecrawl configured, Ariadne extracts job descriptions from open tabs automatically. Otherwise, paste the URL or JD text. See [Optional Integrations](#optional-integrations).
 
-Before tailoring your resume or prepping for an interview, generate a research packet:
+### 3. Work Stories
+
+Populate `data/work-stories.md` with interview-ready stories from your career:
+
+- Accomplishments indexed by theme (leadership, technical, conflict resolution)
+- Quantified impact and context
+- Keywords for matching stories to job requirements
+
+The comparison and research agents cross-reference this file. More detail → better output.
+
+### 4. Research Packets
 
 ```
 "Research packet for Stripe"
 ```
 
 Ariadne's research agent:
-- Researches the hiring manager (career path, management style, public talks)
-- Investigates the company's engineering org, culture, and recent events
-- Maps their tech stack and observability practices to your experience
-- Analyzes the JD and recruiter notes to predict interview question categories
-- Maps your work stories to likely questions with specific beats to hit
-- Curates a prioritized reading/watching list (blog posts, talks, podcasts)
-- Drafts high-signal questions to ask your interviewer
+- Profiles the hiring manager (career, management style, public talks)
+- Investigates company engineering org, culture, and recent events
+- Maps their tech stack to your experience
+- Predicts interview questions from the JD
+- Links your work stories to likely questions
+- Curates a reading list
+- Drafts questions to ask
 
-You get `research-packet.md` in the role folder — including a printable quick reference card for interview day.
+Output: `research-packet.md` with a printable quick reference card.
 
-### 4. Tailoring Your Resume
-
-This is where Ariadne shines. Instead of manually tweaking your resume for each application:
+### 5. Tailoring Your Resume
 
 ```
 "Compare JD and resume for Stripe"
 ```
 
-Ariadne's resume comparison agent:
-- Analyzes the job description for key requirements
-- Cross-references your master resume and interview stories
-- Evaluates fit across multiple dimensions (strategic, technical, leadership, etc.)
-- Produces a **tailored resume** with bullets reordered by relevance
-- Flags anything uncertain with `[REVIEW]` — it never fabricates
+Ariadne's comparison agent:
+- Analyzes JD requirements
+- Cross-references your resume and work stories
+- Evaluates fit across dimensions (strategic, technical, leadership)
+- Produces a tailored resume with bullets reordered by relevance
+- Flags uncertainty with `[REVIEW]` — never fabricates
 
-You get two outputs:
-- `resume-draft.md` — Your customized resume for this role
-- `comparison-analysis.md` — Detailed reasoning, fit scores, and interview risk areas
+Output:
+- `resume-draft.md` — Customized resume
+- `comparison-analysis.md` — Fit scores, reasoning, interview risks
 
-### 5. Generating Your PDF
-
-Once you're happy with the draft:
+### 6. Generating Your PDF
 
 ```
 "Generate PDF for Stripe"
 ```
 
-Ariadne converts your markdown resume to a professionally formatted PDF using your configured stylesheet.
+Converts markdown to PDF using your stylesheet. Requires pandoc and weasyprint — see [Requirements](#requirements).
 
-### 6. Tracking Progress
-
-As you move through the interview process:
+### 7. Tracking Progress
 
 ```
 "Move Stripe to Applied"
@@ -106,38 +130,34 @@ As you move through the interview process:
 "Move Stripe to Onsite"
 ```
 
-Valid stages: `Sourced` → `Applied` → `Phone Screen` → `Technical` → `Onsite` → `Offer` → `Negotiating`
+Stages: `Sourced` → `Applied` → `Phone Screen` → `Technical` → `Onsite` → `Offer` → `Negotiating`
 
-When a process ends:
+Closing a process:
 ```
 "Move Stripe to Rejected"    # They passed
 "Move Stripe to Withdrew"    # You passed
 "Move Stripe to Accepted"    # 🎉
 ```
 
-### 7. Staying Organized
-
-Check your pipeline anytime:
+### 8. Staying Organized
 
 ```
 "Status"
 ```
 
-See all active roles grouped by stage, recent closures, and how long since each was updated. Stale applications (no update in 30+ days) get flagged.
+Active roles by stage, recent closures, stale application alerts.
 
 ```
 "Reconcile"
 ```
 
-Compares your tracker against actual folders — finds orphaned folders, missing entries, and location mismatches. Keeps everything in sync.
+Compares tracker against folders — finds orphans, missing entries, mismatches.
 
 ---
 
 ## Networking & Tasks
 
-Job searching isn't just applications — it's relationships and follow-ups.
-
-### Managing Contacts
+### Contacts
 
 ```
 "Add contact Sarah Chen at Stripe"
@@ -145,9 +165,9 @@ Job searching isn't just applications — it's relationships and follow-ups.
 "Contacts"
 ```
 
-Track your professional network: who you know at target companies, how you met, and every interaction (emails, calls, coffee chats). Link contacts to specific job opportunities.
+Track who you know, how you met, and every interaction. Link contacts to job opportunities.
 
-### Task Management
+### Tasks
 
 ```
 "Add task Follow up with Sarah about referral"
@@ -155,105 +175,72 @@ Track your professional network: who you know at target companies, how you met, 
 "Complete task #1"
 ```
 
-Create tasks linked to jobs and contacts. Never forget a follow-up or interview prep item.
+Tasks link to jobs and contacts. Never forget a follow-up.
 
 ---
 
 ## Status Dashboard
 
 ```
+"Open dashboard"
+```
+
+Builds and opens a local HTML dashboard with pipeline funnel, active roles, tasks, and networking.
+
+```
 "Deploy dashboard"
 ```
 
-Generates a web-based dashboard showing your pipeline funnel, active roles, tasks, and networking activity. Deploys to Cloudflare Pages for easy access from any device.
+Deploys to Cloudflare Pages for remote access. Requires wrangler CLI.
 
 ---
 
-## Getting Started
+## Search Backends
 
-### Requirements
+| Backend | What it is | Cost | Setup |
+|---------|-----------|------|-------|
+| **JobBot** | Scrapes real ATS systems (Greenhouse, Lever, Ashby, Workday) | Paid | Add credentials to `data/config.json` |
+| **Gemini CLI** | Google AI searches web for postings | Free (limits) | `npm install -g @google/gemini-cli` |
+| **Manual** | Add jobs yourself with `Setup` | Free | None |
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
-- Optional: [pandoc](https://pandoc.org/) + [weasyprint](https://weasyprint.org/) for PDF generation
-- Optional: JobBot API credentials or [Gemini CLI](https://github.com/google/gemini-cli) for job search
-- Optional: [Notion API key](https://notion.so/my-integrations) for bidirectional sync
+JobBot is most reliable — real ATS data, guaranteed valid URLs. Gemini may return stale listings.
 
-### Installation
+No search backend? Many users find jobs through LinkedIn or referrals and add them manually.
 
-1. Clone this repository
-2. Start Claude Code in the project directory
-3. Say hello — Ariadne will detect first run and walk you through setup
-
-The interactive setup will:
-- Check your system for required dependencies
-- Analyze your resume to pre-fill profile and search criteria
-- Collect your preferences and configure your search backend
-- Initialize all data files automatically
-
-Your `data/` directory is gitignored — your personal information stays private.
-
-**Alternative:** For a non-interactive setup, run `./init.sh` and manually edit the template files in `data/`.
-
-### First Session
-
-On first run, Ariadne walks you through onboarding. On subsequent sessions, it greets you with available commands and your current pipeline status.
-
-```
-> Good morning
-
-Good morning! Here's your job search status...
-
-## Active Roles (5)
-| Company | Role | Stage | Next Action |
-...
+Config:
+```json
+{
+  "searchBackend": "jobbot",
+  "jobbot": { "endpoint": "https://...", "apiKey": "your-key" }
+}
 ```
 
 ---
 
-## Command Reference
+## Optional Integrations
 
-| Command | What it does |
-|---------|--------------|
-| `"Run job search"` | Find new opportunities matching your criteria |
-| `"Setup #N"` or `"Setup [Company - Role]"` | Start tracking a role |
-| `"Skip #N"` | Filter out a role from future searches |
-| `"Research packet for [Company]"` | Generate interview research packet |
-| `"Compare JD and resume for [Company]"` | Generate tailored resume + fit analysis |
-| `"Generate PDF for [Company]"` | Create submission-ready PDF |
-| `"Move [Company] to [Stage]"` | Update pipeline status |
-| `"Status"` | View current pipeline |
-| `"Reconcile"` | Sync tracker with folder structure |
-| `"Add contact [Name] at [Company]"` | Add to your network |
-| `"Log interaction with [Name]"` | Record a touchpoint |
-| `"Contacts"` | View your network |
-| `"Add task [description]"` | Create a to-do |
-| `"Tasks"` | View pending tasks |
-| `"Complete task #N"` | Mark done |
-| `"Open dashboard"` | Build and open status dashboard locally |
-| `"Deploy dashboard"` | Build and deploy status page |
-| `"Sync to Notion"` | Bidirectional sync jobs, contacts, and tasks to Notion |
+### Chrome Extension (Claude-in-Chrome)
 
----
+Reads job descriptions from open browser tabs. Say `"Setup Stripe - DevEx Lead"` and Ariadne grabs the JD automatically.
 
-## Optional: Notion Sync
+**Setup:** Install Claude-in-Chrome extension, configure MCP server in Claude Code.
 
-Ariadne can sync your jobs, contacts, and tasks to Notion for access from any device. This is fully optional — local files remain the source of truth.
+### Firecrawl MCP
+
+Alternative to Chrome extension — fetches and parses job posting URLs.
+
+**Setup:** Configure Firecrawl MCP server in Claude Code settings.
+
+### Notion Sync
 
 ```
 "Sync to Notion"
 ```
 
-**Features:**
-- Bidirectional incremental sync (pull-then-push)
-- Content hashing skips unchanged items (~6 API calls when nothing changed)
-- Local wins on conflicts
-- Append-only merge for contact interactions
-- Auto-migrates from one-way sync format
+Bidirectional incremental sync. Content hashing skips unchanged items. Local wins on conflicts.
 
-**Auto-sync on session start:** Set `"autoSync": true` in your Notion config to sync automatically when you start a session. Runs in the background — doesn't delay your greeting.
-
+**Auto-sync on session start:**
 ```json
-// data/config.json
 {
   "notion": {
     "apiKey": "ntn_...",
@@ -263,9 +250,168 @@ Ariadne can sync your jobs, contacts, and tasks to Notion for access from any de
 }
 ```
 
-**Flags (manual runs):** `--dry-run`, `--pull-only`, `--push-only`, `--full`, `--apply-deletes`
+See [docs/notion-sync.md](docs/notion-sync.md) for full setup.
 
-See [docs/notion-sync.md](docs/notion-sync.md) for setup and full documentation.
+### Cloudflare Pages
+
+Deploy dashboard for remote access.
+
+**Setup:** `npm install -g wrangler && wrangler login`
+
+---
+
+## Requirements
+
+**Required:**
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+
+**Optional:**
+
+| Tool | For | Install |
+|------|-----|---------|
+| pandoc + weasyprint | PDF generation | `brew install pandoc weasyprint` |
+| Node.js | Dashboard build | [nodejs.org](https://nodejs.org) |
+| wrangler | Dashboard deploy | `npm install -g wrangler` |
+| Gemini CLI | Free job search | `npm install -g @google/gemini-cli` |
+
+---
+
+## Example Data
+
+### tracker.json
+
+```json
+{
+  "active": [{
+    "company": "Stripe",
+    "role": "Staff Engineer, Platform",
+    "stage": "Phone Screen",
+    "next": "Technical screen Thursday",
+    "url": "https://stripe.com/jobs/123",
+    "added": "2026-01-15",
+    "updated": "2026-01-28"
+  }],
+  "skipped": [{
+    "company": "Meta",
+    "role": "IC6 Infrastructure",
+    "reason": "IC role, looking for management"
+  }],
+  "closed": [{
+    "company": "Airbnb",
+    "role": "Engineering Manager",
+    "outcome": "Rejected",
+    "stage": "Onsite"
+  }]
+}
+```
+
+### profile.md
+
+```markdown
+# Profile
+
+**Name:** Alex Chen
+**Resume filename:** Alex Chen Resume.pdf
+
+## Background
+
+Staff engineer, 8 years experience, transitioning to management.
+Led platform team at Datadog building observability infrastructure.
+
+## Target Roles
+
+- Engineering Manager
+- Senior Engineering Manager
+- Director of Engineering (Platform/Infrastructure)
+```
+
+### work-stories.md
+
+```markdown
+# Work Stories
+
+## Leadership
+
+### Built Platform Team from Scratch (Datadog, 2024)
+- **Situation:** Company needed dedicated platform team
+- **Action:** Proposed charter, hired 4 engineers, established roadmap
+- **Result:** 70% faster deployments, highest team satisfaction
+- **Keywords:** team building, hiring, platform
+
+## Technical
+
+### Migrated Monolith to Microservices (2022)
+- **Situation:** Monolith couldn't scale past 10k RPS
+- **Action:** Designed service boundaries, led 6-month migration
+- **Result:** 50k RPS, 99.99% uptime
+- **Keywords:** architecture, migration, scale
+```
+
+---
+
+## Command Reference
+
+| Command | What it does |
+|---------|--------------|
+| `"Run job search"` | Search criteria, return fresh results |
+| `"Setup #N"` / `"Setup [Company - Role]"` | Track a role from any source |
+| `"Skip #N"` | Filter from future searches |
+| `"Research packet for [Company]"` | Interview research packet |
+| `"Compare JD and resume for [Company]"` | Tailored resume + fit analysis |
+| `"Generate PDF for [Company]"` | Submission-ready PDF |
+| `"Move [Company] to [Stage]"` | Update pipeline status |
+| `"Status"` | Pipeline overview, stale alerts |
+| `"Reconcile"` | Sync tracker with folders |
+| `"Add contact [Name] at [Company]"` | Add to network |
+| `"Log interaction with [Name]"` | Record touchpoint |
+| `"Contacts"` | Network with recent interactions |
+| `"Add task [description]"` | Create linked to-do |
+| `"Tasks"` | Pending tasks with due dates |
+| `"Complete task #N"` | Mark done |
+| `"Open dashboard"` | Local HTML dashboard |
+| `"Deploy dashboard"` | Deploy to Cloudflare Pages |
+| `"Sync to Notion"` | Bidirectional Notion sync |
+
+---
+
+## Troubleshooting
+
+### Commands not working
+
+- Ensure `CLAUDE.md` exists in project root
+- Run Claude Code from the project directory
+- Try `"Status"` to verify Ariadne responds
+
+### PDF generation fails
+
+```bash
+brew install pandoc weasyprint  # macOS
+```
+
+### Search returns nothing
+
+- Check `data/search-criteria.md` has target companies
+- Verify `data/config.json` has valid credentials
+- Add jobs manually: `"Setup Company - Role"`
+
+### Notion sync fails
+
+- API key must start with `ntn_` or `secret_`
+- Database IDs: 32 characters from Notion URL
+- Integration must be connected to each database
+- Debug: `node scripts/notion-sync.js --dry-run`
+
+### Dashboard won't deploy
+
+- Install wrangler: `npm install -g wrangler`
+- Authenticate: `wrangler login`
+- Check `data/config.json` has `dashboard.projectName`
+
+### Files out of sync
+
+```
+"Reconcile"
+```
 
 ---
 
@@ -273,61 +419,57 @@ See [docs/notion-sync.md](docs/notion-sync.md) for setup and full documentation.
 
 ```
 ariadne/
-├── CLAUDE.md                 # Claude Code instructions (the brain)
-├── data/                     # Your personal data (gitignored)
-│   ├── profile.md            # Name, background, preferences
+├── CLAUDE.md                 # Instructions (the brain)
+├── data/                     # Personal data (gitignored)
+│   ├── profile.md            # Name, background
 │   ├── resume-content.md     # Master resume
 │   ├── work-stories.md       # Interview stories
-│   ├── tracker.json          # Pipeline state (source of truth)
-│   ├── network.json          # Contacts and interactions
-│   ├── tasks.json            # To-do items
-│   ├── config.json           # API configuration (gitignored)
-│   ├── InProgress/           # Active role folders
-│   ├── Applied/              # Submitted applications
-│   └── Rejected/             # Closed opportunities
-├── data.example/             # Templates for new users
-├── scripts/                  # Automation scripts
-│   └── notion-sync.js        # Bidirectional Notion sync (optional)
-├── docs/                     # Additional documentation
-│   └── notion-sync.md        # Notion sync setup and usage
-├── prompts/                  # Search and analysis prompts
+│   ├── search-criteria.md    # Target companies, roles
+│   ├── tracker.json          # Pipeline state
+│   ├── network.json          # Contacts
+│   ├── tasks.json            # To-dos
+│   ├── config.json           # API keys (gitignored)
+│   ├── InProgress/           # Evaluating
+│   ├── Applied/              # Submitted
+│   └── Rejected/             # Closed
+├── data.example/             # Templates
+├── scripts/notion-sync.js    # Notion sync
+├── docs/notion-sync.md       # Notion setup guide
+├── prompts/                  # Search prompts
 ├── status-page/              # Dashboard generator
 ├── resume.css                # PDF stylesheet
-├── notes-template.md         # Per-role tracking template
-└── init.sh                   # First-time setup
+├── notes-template.md         # Per-role template
+└── init.sh                   # Non-interactive setup
 ```
 
 ---
 
 ## How It Works
 
-Ariadne is built on Claude Code's ability to read project context and execute multi-step workflows. The `CLAUDE.md` file contains detailed instructions for every command — schemas, validation rules, error handling, and behavioral guidelines.
+Ariadne uses Claude Code's ability to read project context and execute workflows. `CLAUDE.md` contains instructions for every command — schemas, validation, error handling.
 
-When you say "Compare JD and resume for Stripe", Claude Code:
-1. Reads the instruction from CLAUDE.md
-2. Finds the role in tracker.json
-3. Loads the JD, your resume, and work stories
-4. Spawns a specialized comparison agent
-5. Writes the tailored resume and analysis to the role folder
+When you say "Compare JD and resume for Stripe":
+1. Reads instruction from CLAUDE.md
+2. Finds role in tracker.json
+3. Loads JD, resume, work stories
+4. Spawns comparison agent
+5. Writes tailored resume and analysis
 
-You stay in control — Ariadne asks before destructive actions and flags anything uncertain for your review.
+You stay in control — Ariadne asks before destructive actions and flags uncertainty for review.
 
 ---
 
 ## Contributing
 
-Ariadne is open source. If you have ideas for improvements:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+Fork → branch → pull request.
 
-The personal data structure (`data/`) is designed to be portable — you can use your own resume content with the framework.
+The `data/` structure is portable — use your own content with the framework.
 
 ---
 
 ## License
 
-MIT License. Use it, modify it, make it yours.
+MIT. Use it, modify it, make it yours.
 
 ---
 
