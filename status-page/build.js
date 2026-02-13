@@ -35,7 +35,7 @@ try {
 }
 
 // Stage order for sorting and progression (single source of truth — Item #1)
-const STAGE_ORDER = ['Sourced', 'Applied', 'Phone Screen', 'Technical', 'Onsite', 'Offer', 'Negotiating'];
+const STAGE_ORDER = ['Sourced', 'Applied', 'Recruiter Screen', 'HM Interview', 'Onsite', 'Offer', 'Negotiating'];
 
 // Valid outcomes for closed roles
 const VALID_OUTCOMES = ['Rejected', 'Withdrew', 'Accepted', 'Expired'];
@@ -1094,6 +1094,13 @@ function build() {
   }
 
   fs.writeFileSync(path.join(DIST, 'index.html'), html);
+
+  // Copy static assets
+  const logoSrc = path.join(__dirname, 'logo.png');
+  if (fs.existsSync(logoSrc)) {
+    fs.copyFileSync(logoSrc, path.join(DIST, 'logo.png'));
+  }
+
   console.log(`Built status page: ${path.join(DIST, 'index.html')}`);
   console.log(`Active: ${currentMetrics.activeCount} | Applied: ${currentMetrics.appliedCount} | Tasks: ${taskMetrics.pendingCount} | Contacts: ${networkMetrics.contactCount}`);
 

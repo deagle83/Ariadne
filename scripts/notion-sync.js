@@ -248,7 +248,7 @@ async function ensureSchemas(config) {
     const needed = {
       'Company': { rich_text: {} },
       'Status': { select: { options: [{ name: 'Active', color: 'green' }, { name: 'Skipped', color: 'gray' }, { name: 'Closed', color: 'red' }] } },
-      'Stage': { select: { options: [{ name: 'Sourced' }, { name: 'Applied' }, { name: 'Phone Screen' }, { name: 'Technical' }, { name: 'Onsite' }, { name: 'Offer' }, { name: 'Negotiating' }] } },
+      'Stage': { select: { options: [{ name: 'Sourced' }, { name: 'Applied' }, { name: 'Recruiter Screen' }, { name: 'HM Interview' }, { name: 'Onsite' }, { name: 'Offer' }, { name: 'Negotiating' }] } },
       'URL': { url: {} },
       'Next Action': { rich_text: {} },
       'Outcome': { select: { options: [{ name: 'Rejected' }, { name: 'Withdrew' }, { name: 'Accepted' }, { name: 'Expired' }] } },
@@ -377,6 +377,7 @@ function taskToNotionProperties(task) {
   const props = {
     'Task': { title: [{ text: { content: task.task || '' } }] },
     'Done': { checkbox: task.status === 'completed' },
+    'Status': { select: { name: task.status === 'completed' ? 'Done' : 'Pending' } },
   };
 
   if (task.due) props['Due'] = { date: { start: task.due } };

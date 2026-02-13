@@ -224,7 +224,7 @@ Copy templates for files user will populate later:
     {
       "company": "Stripe",
       "role": "DevEx Lead",
-      "stage": "Phone Screen",
+      "stage": "HM Interview",
       "next": "Prep behavioral stories",
       "url": "https://stripe.com/jobs/123",
       "added": "2026-01-20",
@@ -262,7 +262,7 @@ Copy templates for files user will populate later:
 |-------|----------|-------------|
 | company | Yes | Company name (normalize aliases — see Error Handling) |
 | role | Yes | Role title |
-| stage | Active only | Current stage: Sourced, Applied, Phone Screen, Technical, Onsite, Offer, Negotiating |
+| stage | Active only | Current stage: Sourced, Applied, Recruiter Screen, HM Interview, Onsite, Offer, Negotiating |
 | next | Active only | Next action (brief, for dashboard) |
 | url | Yes | Job posting URL |
 | added | Yes | Date added (YYYY-MM-DD) |
@@ -551,7 +551,7 @@ When user says `"Skip #N"` or `"Skip #N, #M"`:
 
 **Directory mapping:**
 - `Sourced` → `data/InProgress/`
-- `Applied`, `Phone Screen`, `Technical`, `Onsite`, `Offer`, `Negotiating` → `data/Applied/`
+- `Applied`, `Recruiter Screen`, `HM Interview`, `Onsite`, `Offer`, `Negotiating` → `data/Applied/`
 - Any closed outcome (`Rejected`, `Withdrew`, `Accepted`, `Expired`) → `data/Rejected/`
 
 This rule applies even if the user doesn't use the formal "Move" command syntax.
@@ -562,7 +562,7 @@ When user says `"Move [Company] to [Status]"` (e.g., "Move Stripe to Applied"):
 
 **Valid target statuses:**
 - `Applied` — submitted application (stays in active, stage changes)
-- `Phone Screen`, `Technical`, `Onsite`, `Offer`, `Negotiating` — stage progression (stays in active)
+- `Recruiter Screen`, `HM Interview`, `Onsite`, `Offer`, `Negotiating` — stage progression (stays in active)
 - `Closed` — terminal state (moves from active to closed array, requires outcome)
 - `Rejected`, `Withdrew`, `Accepted`, `Expired` — shortcuts for Closed with outcome
 
@@ -571,7 +571,7 @@ When user says `"Move [Company] to [Status]"` (e.g., "Move Stripe to Applied"):
 1. Read data/tracker.json
 2. Find role in `active` array by company name (fuzzy match)
 3. **If not found:** Error — suggest Reconcile if folder exists
-4. **If moving to a stage** (Applied, Phone Screen, etc.):
+4. **If moving to a stage** (Applied, Recruiter Screen, etc.):
    - Update `stage` and `updated` fields
    - Move physical folder if status directory changes (e.g., InProgress → Applied)
    - Update `folder` field
@@ -634,8 +634,8 @@ When user says `"Status"`:
 
 | Company | Role | Stage | Next Action | Updated |
 |---------|------|-------|-------------|---------|
-| GitHub | Director of DevEx | Phone Screen | Awaiting loop decision (~Feb 6) | Jan 30 |
-| Coinbase | SEM Finhub Platform | Phone Screen | Recruiter screen Feb 2 | Jan 30 |
+| GitHub | Director of DevEx | Onsite | Awaiting loop decision (~Feb 6) | Jan 30 |
+| Coinbase | SEM Finhub Platform | Recruiter Screen | Recruiter screen Feb 2 | Jan 30 |
 
 ## Applied (5)
 
@@ -649,7 +649,7 @@ Discord · Cloudflare · Upstart · LocalStack · Adobe · Patreon · Yahoo · +
 ```
 
 **Rules:**
-- **Interviews** (Phone Screen and above): full detail table — these are highest priority
+- **Interviews** (Recruiter Screen and above): full detail table — these are highest priority
 - **Applied**: compact one-liner listing company names, group duplicates with (×N)
 - **Sourced**: compact one-liner, show most recent first, truncate with "+N more" if >7
 - **Closed/Skipped**: counts only
@@ -977,8 +977,8 @@ Add others as encountered.
 Only these values allowed for `stage`:
 - `Sourced` — found, not yet applied
 - `Applied` — submitted application
-- `Phone Screen` — recruiter/hiring manager call
-- `Technical` — technical interview stage
+- `Recruiter Screen` — recruiter call
+- `HM Interview` — hiring manager interview
 - `Onsite` — final round
 - `Offer` — received offer
 - `Negotiating` — working terms
